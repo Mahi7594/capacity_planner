@@ -230,13 +230,24 @@ def consolidated_planner_view(request):
         for project in Project.objects.order_by('project_id'):
             display_data[project.project_id] = sorted(activities_by_project.get(project.id, []), key=lambda a: a.start_date)
 
-    # This logic is for the small bar chart next to the group name
+    # --- MODIFIED: Calculate both daily summary AND overall project timeline ---
     group_gantt_data = {}
     for group_name, activities_in_group in display_data.items():
         daily_activity_count = defaultdict(int)
+        group_start_dates = []
+        group_end_dates = []
+        
         for activity in activities_in_group:
-            for day in activity.work_days: daily_activity_count[day] += 1
-        group_gantt_data[group_name] = {day: 2 if count > 1 else 1 for day, count in daily_activity_count.items()}
+            if activity.start_date: group_start_dates.append(activity.start_date)
+            if activity.end_date: group_end_dates.append(activity.end_date)
+            for day in activity.work_days: 
+                daily_activity_count[day] += 1
+        
+        group_gantt_data[group_name] = {
+            'daily_summary': {day: 2 if count > 1 else 1 for day, count in daily_activity_count.items()},
+            'project_start': min(group_start_dates) if group_start_dates else None,
+            'project_end': max(group_end_dates) if group_end_dates else None
+        }
     
     # Update context with view-specific data
     context.update({

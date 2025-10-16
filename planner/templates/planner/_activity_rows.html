@@ -1,0 +1,48 @@
+{% load planner_extras %}
+
+{% for activity in activities %}
+<tr class="h-14 project-row {% if group_name %}hidden{% endif %}" {% if group_name %}data-group-id="{{ group_name }}"{% endif %}>
+    
+    {% comment %} --- STICKY CELLS WITH DATA ATTRIBUTES FOR FILTERING --- {% endcomment %}
+    {% if not project and grouping_method == 'project' %}
+    <td class="sticky-cell col-project px-3 py-2 text-sm font-medium text-indigo-600 border-r" data-filter-column="project">{{ activity.project.project_id }}</td>
+    {% endif %}
+    <td class="sticky-cell col-activity px-3 py-2 text-sm text-gray-900 font-medium border-r" data-filter-column="activity">{{ activity.activity_name }}</td>
+    <td class="sticky-cell col-assignee px-3 py-2 text-sm text-gray-600 border-r" data-filter-column="assignee">
+        {% if activity.assignee %}
+            <div class="flex items-center">
+                <div class="w-6 h-6 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold mr-2 flex-shrink-0">{{ activity.assignee.name|first|upper }}</div>
+                <span>{{ activity.assignee.name }}</span>
+            </div>
+        {% else %}<span class="text-gray-400">Unassigned</span>{% endif %}
+    </td>
+    <td class="sticky-cell col-start px-3 py-2 text-sm text-gray-600 border-r" data-filter-column="start">{{ activity.start_date|date:"M d" }}</td>
+    <td class="sticky-cell col-end px-3 py-2 text-sm text-gray-600 border-r" data-filter-column="end">{{ activity.end_date|date:"M d" }}</td>
+    <td class="sticky-cell col-actions px-3 py-2 text-sm font-medium border-r">
+        <div class="relative inline-block text-left action-dropdown">
+            <button type="button" class="action-btn inline-flex justify-center w-full px-3 py-1 text-sm font-medium text-gray-700 rounded-md"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button>
+            <div class="action-menu hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md z-50">
+                <div class="py-1">
+                    <a href="{% url 'edit_activity' activity.pk %}" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100 flex items-center"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>Edit Activity</a>
+                    <form method="POST" action="{% url 'delete_activity' activity.pk %}" class="inline" onsubmit="return confirm('Delete this activity?');">
+                        {% csrf_token %}
+                        <button type="submit" class="text-red-700 block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 flex items-center"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>Delete Activity</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </td>
+
+    {% for d in gantt_data.header_dates %}
+        <td class="gantt-cell p-0 {% if d.weekday > 4 %}weekend-cell{% elif d in holidays_map %}holiday-cell{% endif %} {% if d == today %}today-cell{% endif %}" title="{% if d in holidays_map %}{{ holidays_map|get_item:d }}{% elif d in activity.work_days %}{{ activity.activity_name }} - {{ d|date:"M j" }}{% endif %}">
+            {% if d in activity.work_days %}
+                {% if activity.assignee and activity.assignee.name in overlap_days|get_item:d %}
+                    <div class="gantt-bar overlap-bar h-6 mx-1" title="⚠️ OVERLAP: {{ activity.assignee.name }} on {{ d|date:"Y-m-d" }}"></div>
+                {% else %}
+                    <div class="gantt-bar activity-bar h-6 mx-1" title="📋 {{ activity.activity_name }}&#10;👤 {{ activity.assignee.name|default:"Unassigned" }}&#10;📅 {{ d|date:"M j, Y" }}"></div>
+                {% endif %}
+            {% endif %}
+        </td>
+    {% endfor %}
+</tr>
+{% endfor %}
