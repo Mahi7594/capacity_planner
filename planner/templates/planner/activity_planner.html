@@ -27,6 +27,15 @@
     .filter-input { border: 2px solid #e5e7eb; border-radius: 6px; transition: all 0.2s ease; }
     .filter-input:focus { border-color: #4f46e5; outline: none; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
     
+    .btn-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        transition: all 0.2s ease;
+    }
+    .btn-success:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+    }
+
     /* --- Key Structural and Sticky Column Styles --- */
     .table-container { max-height: 70vh; overflow: auto; border-top: 1px solid #e5e7eb; }
     .table-container::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -114,7 +123,10 @@
                     <svg class="icon mr-3 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                     <h2 class="text-xl font-bold text-gray-800">Activity Timeline</h2>
                 </div>
-                <button id="openModalBtn" class="btn-success text-white py-2 px-6 rounded-lg font-semibold flex items-center"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>Add Activity</button>
+                <button id="openModalBtn" class="btn-success text-white py-2 px-6 rounded-lg font-semibold flex items-center">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                    Add Activity
+                </button>
             </div>
         </div>
 
@@ -182,15 +194,121 @@
 </div>
 
 <div id="addActivityModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
+    <div class="relative mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="flex justify-between items-center pb-3 border-b bg-gradient-to-r from-indigo-600 to-purple-700 -m-5 p-5 rounded-t-md">
+            <h3 class="text-2xl font-semibold text-white flex items-center">
+                <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                Add New Activity
+            </h3>
+            <button id="closeModalBtn" type="button" class="text-white hover:text-gray-200 text-3xl font-bold">&times;</button>
+        </div>
+        <div class="mt-5">
+            <form method="POST" id="addActivityForm" class="space-y-6">
+                {% csrf_token %}
+                <input type="hidden" name="add_activity" value="true">
+
+                {% if project %}
+                    <div style="display: none;">{{ form.project }}</div>
+                {% else %}
+                <div class="p-4 border rounded-lg bg-gray-50">
+                    <h4 class="text-lg font-medium text-gray-700 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Core Details
+                    </h4>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Parent Project *</label>
+                        {{ form.project }}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="p-4 border rounded-lg bg-gray-50">
+                    <label class="block text-sm font-medium text-gray-700">Activity Name *</label>
+                    {{ form.activity_name }}
+                </div>
+
+                <div class="p-4 border rounded-lg bg-gray-50">
+                    <h4 class="text-lg font-medium text-gray-700 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                        Classification & Assignment
+                    </h4>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Assignee</label>
+                        {{ form.assignee }}
+                    </div>
+                </div>
+
+                <div class="p-4 border rounded-lg bg-gray-50">
+                    <h4 class="text-lg font-medium text-gray-700 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        Scheduling
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Start Date *</label>
+                            {{ form.start_date }}
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Duration (Working Days) *</label>
+                            {{ form.duration }}
+                            <p class="text-xs text-gray-500">Excludes weekends and holidays</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 border rounded-lg bg-gray-50">
+                    <h4 class="text-lg font-medium text-gray-700 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v9a2 2 0 01-2 2h-5l-4 4z"></path></svg>
+                        Additional Information
+                    </h4>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Remarks</label>
+                        {{ form.remark }}
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-4 border-t flex justify-end space-x-4">
+                    <button id="cancelModalBtn" type="button" class="bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300">Cancel</button>
+                    <button type="submit" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700">Add Activity</button>
+                </div>
+            </form>
+        </div>
     </div>
+</div>
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // Modal logic is unchanged...
+    // --- MODIFIED: Complete and functional modal script ---
     const modal = document.getElementById('addActivityModal');
-    // ...
+    const openBtn = document.getElementById('openModalBtn');
 
-    // --- FINAL SCRIPT WITH ALL FUNCTIONALITY RESTORED ---
+    if (modal && openBtn) {
+        // Use querySelector on the modal element to ensure we get the right buttons
+        const closeBtn = modal.querySelector('#closeModalBtn');
+        const cancelBtn = modal.querySelector('#cancelModalBtn');
+        const form = modal.querySelector('#addActivityForm');
+
+        openBtn.addEventListener('click', () => {
+            modal.classList.remove('hidden');
+        });
+
+        const closeModal = () => {
+            modal.classList.add('hidden');
+            if (form) {
+                form.reset(); // Reset form fields on close
+            }
+        };
+
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+
+        // Close modal on Escape key press
+        window.addEventListener('keydown', (e) => {
+            if (e.key === "Escape" && !modal.classList.contains('hidden')) {
+                closeModal();
+            }
+        });
+    }
 
     // Action dropdown functionality
     const tableContainer = document.querySelector('.table-container');
@@ -283,13 +401,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isCollapsed) {
                     row.classList.add('hidden');
                 } else {
-                    if (row.style.display !== 'none') { // Only un-hide if not hidden by filter
+                    // Only un-hide if not hidden by filter
+                    if (row.style.display !== 'none') { 
                         row.classList.remove('hidden');
                     }
                 }
             });
         });
 
+        // Collapse all groups except the first one by default
         if (index > 0) {
             header.classList.add('collapsed');
             document.querySelectorAll(`.project-row[data-group-id="${groupId}"]`).forEach(row => row.classList.add('hidden'));
