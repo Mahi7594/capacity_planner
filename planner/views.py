@@ -320,6 +320,9 @@ def configuration_view(request):
             general_settings, _ = GeneralSettings.objects.get_or_create(pk=1)
             general_settings.working_hours_per_day = request.POST.get('working_hours_per_day', 8.0)
             general_settings.save()
+        # --- MODIFIED ---
+        # Added a new condition to handle the capacity settings form separately.
+        elif 'update_capacity_settings' in request.POST:
             for choice, _ in Employee.DESIGNATION_CHOICES:
                 setting, _ = CapacitySettings.objects.get_or_create(designation=choice)
                 setting.monthly_meeting_hours = request.POST.get(f'meeting_hours_{choice}', 0)
