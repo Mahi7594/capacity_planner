@@ -1,7 +1,9 @@
 {% load planner_extras %}
 
 {% for activity in activities %}
-<tr class="h-14 project-row {% if group_name %}hidden{% endif %}" {% if group_name %}data-group-id="{{ group_name }}"{% endif %}>
+<tr class="h-14 project-row gantt-activity-row {% if group_name %}hidden{% endif %}" 
+    {% if group_name %}data-group-id="{{ group_name }}"{% endif %}
+    data-activity-pk="{{ activity.pk }}">
     
     {% comment %} --- STICKY CELLS WITH DATA ATTRIBUTES FOR FILTERING --- {% endcomment %}
     {% if not project and grouping_method == 'project' %}
@@ -34,14 +36,10 @@
     </td>
 
     {% for d in gantt_data.header_dates %}
-        <td class="gantt-cell p-0 {% if d.weekday > 4 %}weekend-cell{% elif d in holidays_map %}holiday-cell{% endif %} {% if d == today %}today-cell{% endif %}" title="{% if d in holidays_map %}{{ holidays_map|get_item:d }}{% elif d in activity.work_days %}{{ activity.activity_name }} - {{ d|date:"M j" }}{% endif %}">
-            {% if d in activity.work_days %}
-                {% if activity.assignee and activity.assignee.name in overlap_days|get_item:d %}
-                    <div class="gantt-bar overlap-bar h-6 mx-1" title="⚠️ OVERLAP: {{ activity.assignee.name }} on {{ d|date:"Y-m-d" }}"></div>
-                {% else %}
-                    <div class="gantt-bar activity-bar h-6 mx-1" title="📋 {{ activity.activity_name }}&#10;👤 {{ activity.assignee.name|default:"Unassigned" }}&#10;📅 {{ d|date:"M j, Y" }}"></div>
-                {% endif %}
-            {% endif %}
+        <td class="gantt-cell p-0 {% if d.weekday > 4 %}weekend-cell{% elif d in holidays_map %}holiday-cell{% endif %} {% if d == today %}today-cell{% endif %}"
+            data-date="{{ d|date:'Y-m-d' }}"
+            title="{% if d in holidays_map %}{{ holidays_map|get_item:d }}{% endif %}">
+            {% comment %} --- JS will inject bars here --- {% endcomment %}
         </td>
     {% endfor %}
 </tr>

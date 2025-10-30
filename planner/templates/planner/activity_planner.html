@@ -16,7 +16,25 @@
     .gantt-bar:hover { transform: scaleY(1.1); z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
     .activity-bar { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
     .overlap-bar { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); animation: pulse 2s infinite; }
-    .project-timeline-bar { background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%); opacity: 0.6; }
+    
+    /* --- MODIFIED: Summary Bar Styling --- */
+    .project-timeline-bar { 
+        background: #bfdbfe;  /* NEW: Light blue color */
+        opacity: 0.9;
+        border-radius: 0;     /* NEW: Square corners for middle parts */
+    }
+    /* NEW: Class for the start of the summary bar */
+    .summary-bar-start {
+        border-left: 3px solid #3b82f6; /* Strong blue left border */
+        border-radius: 4px 0 0 4px;      /* Rounded outer left corner */
+    }
+    /* NEW: Class for the end of the summary bar */
+    .summary-bar-end {
+        border-right: 3px solid #3b82f6; /* Strong blue right border */
+        border-radius: 0 4px 4px 0;       /* Rounded outer right corner */
+    }
+    /* --- END MODIFICATION --- */
+
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
     .weekend-cell { background-color: #f8fafc; }
     .holiday-cell { background-color: #fef9c3; }
@@ -98,6 +116,8 @@
     </div>
 </header>
 
+{{ gantt_init_data|json_script:"gantt-init-data" }}
+
 <div class="max-w-full mx-auto py-10 px-4 sm:px-6 lg:px-8">
     {% if not project %}
     <div class="mb-6 bg-white p-6 rounded-xl shadow-lg">
@@ -169,8 +189,10 @@
                                     <div class="flex items-center justify-between"><div class="flex items-center space-x-3"><svg class="group-icon w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg><span>{{ group_name }}</span><span class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-xs font-medium">{{ activities_in_group|length }} Activities</span></div></div>
                                 </td>
                                 {% for d in gantt_data.header_dates %}
-                                    <td class="gantt-cell p-0 relative {% if d.weekday > 4 %}weekend-cell{% elif d in holidays_map %}holiday-cell{% endif %} {% if d == today %}today-cell{% endif %}" title="{% if d in holidays_map %}{{ holidays_map|get_item:d }}{% endif %}">
-                                        {% with day_status=group_data.daily_summary|get_item:d %}{% if day_status %}<div class="gantt-bar project-timeline-bar h-4 my-3" title="Activity in '{{ group_name }}' on {{ d|date:"M d" }}"></div>{% endif %}{% endwith %}
+                                    <td class="gantt-cell p-0 relative {% if d.weekday > 4 %}weekend-cell{% elif d in holidays_map %}holiday-cell{% endif %} {% if d == today %}today-cell{% endif %}" 
+                                        data-date="{{ d|date:'Y-m-d' }}"
+                                        title="{% if d in holidays_map %}{{ holidays_map|get_item:d }}{% endif %}">
+                                        {% comment %} --- JS will inject group summary bars here --- {% endcomment %}
                                     </td>
                                 {% endfor %}
                             </tr>
@@ -278,39 +300,27 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-    // --- MODIFIED: Complete and functional modal script ---
+    // --- Modal Management ---
     const modal = document.getElementById('addActivityModal');
     const openBtn = document.getElementById('openModalBtn');
-
     if (modal && openBtn) {
-        // Use querySelector on the modal element to ensure we get the right buttons
         const closeBtn = modal.querySelector('#closeModalBtn');
         const cancelBtn = modal.querySelector('#cancelModalBtn');
         const form = modal.querySelector('#addActivityForm');
 
-        openBtn.addEventListener('click', () => {
-            modal.classList.remove('hidden');
-        });
-
+        openBtn.addEventListener('click', () => modal.classList.remove('hidden'));
         const closeModal = () => {
             modal.classList.add('hidden');
-            if (form) {
-                form.reset(); // Reset form fields on close
-            }
+            if (form) form.reset();
         };
-
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
         if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
-
-        // Close modal on Escape key press
         window.addEventListener('keydown', (e) => {
-            if (e.key === "Escape" && !modal.classList.contains('hidden')) {
-                closeModal();
-            }
+            if (e.key === "Escape" && !modal.classList.contains('hidden')) closeModal();
         });
     }
 
-    // Action dropdown functionality
+    // --- Action Dropdown Logic ---
     const tableContainer = document.querySelector('.table-container');
     tableContainer.addEventListener('click', (e) => {
         const actionBtn = e.target.closest('.action-btn');
@@ -318,26 +328,14 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             const parentRow = actionBtn.closest('tr');
             const menu = actionBtn.parentElement.querySelector('.action-menu');
-            
-            // Remove active class from all rows first
-            document.querySelectorAll('tr.row-is-active').forEach(row => {
-                row.classList.remove('row-is-active');
-            });
-            
-            // Close all other menus before opening the new one
+            document.querySelectorAll('tr.row-is-active').forEach(row => row.classList.remove('row-is-active'));
+            const isOpening = menu.classList.toggle('hidden');
             document.querySelectorAll('.action-menu').forEach(m => {
                 if (m !== menu) m.classList.add('hidden');
             });
-
-            // Toggle current menu and set active class on its row
-            const isOpening = menu.classList.toggle('hidden');
-            if (!isOpening) { // If the menu is now visible
-                parentRow.classList.add('row-is-active');
-            }
+            if (!isOpening) parentRow.classList.add('row-is-active');
         }
     });
-
-    // Close dropdowns when clicking outside
     window.addEventListener('click', (e) => {
         if (!e.target.closest('.action-dropdown')) {
             document.querySelectorAll('.action-menu').forEach(m => m.classList.add('hidden'));
@@ -345,20 +343,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Group-aware Filter Logic
+    // --- Filter Logic ---
     const filterInputs = document.querySelectorAll('.filter-input');
     const groupHeaders = document.querySelectorAll('.group-header');
-    const activityRows = document.querySelectorAll('.project-row');
+    const activityRows = document.querySelectorAll('.gantt-activity-row'); // Use new class
     const noResultsRow = document.getElementById('no-results-row');
-
+    
     function applyFilters() {
         const filters = {};
         filterInputs.forEach(input => {
             const column = input.dataset.filterColumn;
             const value = input.value.toLowerCase().trim();
-            if (value) {
-                filters[column] = value;
-            }
+            if (value) filters[column] = value;
         });
 
         let anyRowVisible = false;
@@ -371,14 +367,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                 }
             }
-            row.style.display = isVisible ? '' : 'none';
+            // Check against group collapse state
+            const isCollapsed = row.classList.contains('hidden') && !row.style.display;
+            if (isCollapsed && isVisible) {
+                // Don't show, but count it for the group header
+            } else {
+                 row.style.display = isVisible ? '' : 'none';
+            }
             if(isVisible) anyRowVisible = true;
         });
 
         groupHeaders.forEach(header => {
             const groupId = header.dataset.groupId;
-            const childRows = document.querySelectorAll(`.project-row[data-group-id="${groupId}"]`);
-            const hasVisibleChild = Array.from(childRows).some(row => row.style.display !== 'none');
+            const childRows = document.querySelectorAll(`.gantt-activity-row[data-group-id="${groupId}"]`);
+            const hasVisibleChild = Array.from(childRows).some(row => {
+                let isMatch = true;
+                for (const column in filters) {
+                    const cell = row.querySelector(`[data-filter-column="${column}"]`);
+                    if (!cell || !cell.textContent.toLowerCase().includes(filters[column])) {
+                        isMatch = false;
+                        break;
+                    }
+                }
+                return isMatch;
+            });
             header.style.display = hasVisibleChild ? '' : 'none';
             if(hasVisibleChild) anyRowVisible = true;
         });
@@ -387,14 +399,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     filterInputs.forEach(input => input.addEventListener('keyup', applyFilters));
     
-    // Group header functionality (works with filtering)
+    // --- Group Header Collapse Logic ---
     groupHeaders.forEach((header, index) => {
         const groupId = header.dataset.groupId;
         if (!groupId) return;
 
         header.addEventListener('click', () => {
             header.classList.toggle('collapsed');
-            const rowsToToggle = document.querySelectorAll(`.project-row[data-group-id="${groupId}"]`);
+            const rowsToToggle = document.querySelectorAll(`.gantt-activity-row[data-group-id="${groupId}"]`);
             const isCollapsed = header.classList.contains('collapsed');
 
             rowsToToggle.forEach(row => {
@@ -407,17 +419,179 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             });
+            // Re-apply filters to ensure consistency
+            applyFilters();
         });
 
-        // Collapse all groups except the first one by default
-        if (index > 0) {
-            header.classList.add('collapsed');
-            document.querySelectorAll(`.project-row[data-group-id="${groupId}"]`).forEach(row => row.classList.add('hidden'));
-        } else {
-             header.classList.remove('collapsed');
-             document.querySelectorAll(`.project-row[data-group-id="${groupId}"]`).forEach(row => row.classList.remove('hidden'));
-        }
+        if (index > 0) header.classList.add('collapsed');
+        else header.classList.remove('collapsed');
     });
+    // Apply initial collapse state
+    document.querySelectorAll('.group-header.collapsed').forEach(header => {
+        const groupId = header.dataset.groupId;
+        document.querySelectorAll(`.gantt-activity-row[data-group-id="${groupId}"]`).forEach(row => row.classList.add('hidden'));
+    });
+    
+    // --- NEW: Frontend Gantt Rendering Logic ---
+    function parseDate(dateStr) {
+        if (!dateStr) return null;
+        const [year, month, day] = dateStr.split('-').map(Number);
+        // Note: JS months are 0-indexed (0=Jan, 11=Dec)
+        return new Date(Date.UTC(year, month - 1, day)); // Use UTC to avoid timezone issues
+    }
+
+    function addDays(date, days) {
+        const newDate = new Date(date.valueOf());
+        newDate.setUTCDate(newDate.getUTCDate() + days);
+        return newDate;
+    }
+    
+    // Helper to get date string in YYYY-MM-DD format from a Date object
+    function toISODateString(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    function getWorkDays(startDate, endDate, holidaysSet) {
+        if (!startDate || !endDate) return [];
+        let workDays = [];
+        let currentDate = new Date(startDate.valueOf());
+
+        while (currentDate <= endDate) {
+            const day = currentDate.getUTCDay(); // 0=Sunday, 6=Saturday
+            const isWeekend = (day === 0 || day === 6);
+            const dateStr = toISODateString(currentDate);
+            
+            if (!isWeekend && !holidaysSet.has(dateStr)) {
+                workDays.push(dateStr);
+            }
+            currentDate = addDays(currentDate, 1);
+        }
+        return workDays;
+    }
+
+    function renderGantt() {
+        console.time('Frontend Gantt Render');
+        const dataEl = document.getElementById('gantt-init-data');
+        if (!dataEl) {
+            console.error('Gantt data script tag not found!');
+            return;
+        }
+        
+        const data = JSON.parse(dataEl.textContent);
+        const activitiesMap = new Map(data.activities.map(act => [act.pk, act]));
+        const holidaysSet = new Set(data.holidays);
+        
+        const dailyOccupancy = new Map(); // Map<dateStr, Set<assigneeName>>
+        const overlaps = new Map(); // Map<dateStr, Set<assigneeName>>
+        const allWorkDays = new Map(); // Map<activityPk, workDayString[]>
+
+        // 1. Calculate all work days and populate daily occupancy
+        activitiesMap.forEach(act => {
+            const startDate = parseDate(act.start_date);
+            const endDate = parseDate(act.end_date);
+            const workDays = getWorkDays(startDate, endDate, holidaysSet);
+            allWorkDays.set(act.pk, workDays);
+            
+            if (act.assignee) {
+                workDays.forEach(dateStr => {
+                    if (!dailyOccupancy.has(dateStr)) {
+                        dailyOccupancy.set(dateStr, new Set());
+                    }
+                    const occupants = dailyOccupancy.get(dateStr);
+                    
+                    if (occupants.has(act.assignee)) {
+                        // This is an overlap
+                        if (!overlaps.has(dateStr)) {
+                            overlaps.set(dateStr, new Set());
+                        }
+                        overlaps.get(dateStr).add(act.assignee);
+                    } else {
+                        occupants.add(act.assignee);
+                    }
+                });
+            }
+        });
+
+        // 2. Render activity bars
+        document.querySelectorAll('.gantt-activity-row').forEach(row => {
+            const pk = parseInt(row.dataset.activityPk, 10);
+            const act = activitiesMap.get(pk);
+            const workDays = allWorkDays.get(pk);
+            
+            if (!act || !workDays) return;
+
+            workDays.forEach(dateStr => {
+                const cell = row.querySelector(`td.gantt-cell[data-date="${dateStr}"]`);
+                if (cell) {
+                    let barClass = 'activity-bar';
+                    let title = `📋 ${act.name}\n👤 ${act.assignee || 'Unassigned'}\n📅 ${dateStr}`;
+
+                    // Check for overlap
+                    if (act.assignee && overlaps.has(dateStr) && overlaps.get(dateStr).has(act.assignee)) {
+                        barClass = 'overlap-bar';
+                        title = `⚠️ OVERLAP: ${act.assignee} on ${dateStr}\n` + title;
+                    }
+                    
+                    const barDiv = document.createElement('div');
+                    barDiv.className = `gantt-bar ${barClass} h-6 mx-1`;
+                    barDiv.title = title;
+                    cell.appendChild(barDiv);
+                }
+            });
+        });
+        
+        // 3. Render Group Summary Bars
+        document.querySelectorAll('.group-header').forEach(headerRow => {
+            const groupId = headerRow.dataset.groupId;
+            const groupName = headerRow.querySelector('span').textContent || groupId;
+            if (!groupId) return;
+
+            const activityRows = document.querySelectorAll(`.gantt-activity-row[data-group-id="${groupId}"]`);
+            const groupWorkDaysSet = new Set();
+
+            // Collect all workdays for this group
+            activityRows.forEach(actRow => {
+                const pk = parseInt(actRow.dataset.activityPk, 10);
+                const workDays = allWorkDays.get(pk);
+                if (workDays) {
+                    workDays.forEach(day => groupWorkDaysSet.add(day));
+                }
+            });
+
+            if (groupWorkDaysSet.size === 0) return; // Skip if no activities
+
+            // --- MODIFIED: Find min/max date and apply new classes ---
+            const sortedGroupDays = Array.from(groupWorkDaysSet).sort();
+            const minDate = sortedGroupDays[0];
+            const maxDate = sortedGroupDays[sortedGroupDays.length - 1];
+
+            // Render the summary bars in the header row
+            sortedGroupDays.forEach(dateStr => {
+                const cell = headerRow.querySelector(`td.gantt-cell[data-date="${dateStr}"]`);
+                if (cell) {
+                    const barDiv = document.createElement('div');
+                    
+                    let barClasses = 'gantt-bar project-timeline-bar h-4 my-3';
+                    if (dateStr === minDate) {
+                        barClasses += ' summary-bar-start';
+                    }
+                    if (dateStr === maxDate) {
+                        barClasses += ' summary-bar-end';
+                    }
+                    
+                    barDiv.className = barClasses; 
+                    barDiv.title = `Activity in '${groupName}' on ${dateStr}`;
+                    cell.appendChild(barDiv);
+                }
+            });
+            // --- END MODIFICATION ---
+        });
+        
+        console.timeEnd('Frontend Gantt Render');
+    }
+    
+    // Run the renderer
+    renderGantt();
 });
 </script>
 

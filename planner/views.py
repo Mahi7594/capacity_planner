@@ -19,46 +19,26 @@ from django.views.decorators.http import require_POST
 # Define this constant at the top of the file to avoid "magic numbers"
 CR = 10_000_000
 
-# NEW: Helper function to handle common Gantt chart logic
+# MODIFIED: Helper function is now much simpler.
 def _prepare_gantt_context(activities_qs):
     """
     Takes a queryset of activities and returns a context dictionary 
-    with all the necessary data for rendering a Gantt chart.
+    with the date range and header data for a Gantt chart.
+    
+    All work_day and overlap calculation is moved to the frontend.
     """
     activities_list = list(activities_qs)
     today = date.today()
     
     holidays_map = {h.date: h.description for h in Holiday.objects.all()}
-    holidays_set = set(holidays_map.keys())
 
-    # 1. Calculate work_days for each activity
-    for activity in activities_list:
-        activity.work_days = set()
-        if activity.start_date and activity.end_date:
-            current_date = activity.start_date
-            while current_date <= activity.end_date:
-                if current_date.weekday() < 5 and current_date not in holidays_set:
-                    activity.work_days.add(current_date)
-                current_date += timedelta(days=1)
-    
-    # 2. Calculate assignee overlaps
-    overlap_days = defaultdict(set)
-    daily_occupancy = defaultdict(set)
-    for activity in activities_list:
-        if activity.assignee:
-            for day in activity.work_days:
-                if activity.assignee.name in daily_occupancy[day]:
-                    overlap_days[day].add(activity.assignee.name)
-                else:
-                    daily_occupancy[day].add(activity.assignee.name)
-
-    # 3. Determine the date range for the Gantt chart
+    # 1. Determine the date range for the Gantt chart
     min_start_dates = [a.start_date for a in activities_list if a.start_date]
     max_end_dates = [a.end_date for a in activities_list if a.end_date]
     gantt_start_date = min(min_start_dates) - timedelta(days=7) if min_start_dates else today - timedelta(days=7)
     gantt_end_date = max(max_end_dates) + timedelta(days=60) if max_end_dates else today + timedelta(days=60)
             
-    # 4. Build the gantt_data dictionary
+    # 2. Build the gantt_data dictionary for headers
     gantt_data = {'start_date': gantt_start_date, 'end_date': gantt_end_date, 'months': OrderedDict()}
     header_dates = [gantt_start_date + timedelta(days=i) for i in range((gantt_end_date - gantt_start_date).days + 1)]
     for d in header_dates:
@@ -67,10 +47,9 @@ def _prepare_gantt_context(activities_qs):
     gantt_data['header_dates'] = header_dates
     
     return {
-        'activities': activities_list,
+        'activities': activities_list, # Pass the original list for grouping
         'gantt_data': gantt_data,
         'today': today,
-        'overlap_days': overlap_days,
         'holidays_map': holidays_map,
     }
 
@@ -197,7 +176,7 @@ def project_list_view(request):
     return render(request, 'planner/project_list.html', context)
 
 
-# MODIFIED: This view is now much cleaner
+# MODIFIED: This view now serializes data for the frontend
 def consolidated_planner_view(request):
     form = ActivityForm()
     grouping_method = request.GET.get('group_by', 'project')
@@ -211,7 +190,7 @@ def consolidated_planner_view(request):
     # Start with the base queryset
     all_activities_qs = Activity.objects.select_related('project', 'project_type__category', 'assignee').all()
     
-    # Prepare the common context data using our new helper function
+    # Prepare the common context data using our simplified helper function
     context = _prepare_gantt_context(all_activities_qs)
 
     # Grouping logic remains specific to this view
@@ -230,36 +209,37 @@ def consolidated_planner_view(request):
         for project in Project.objects.order_by('project_id'):
             display_data[project.project_id] = sorted(activities_by_project.get(project.id, []), key=lambda a: a.start_date)
 
-    # --- MODIFIED: Calculate both daily summary AND overall project timeline ---
-    group_gantt_data = {}
-    for group_name, activities_in_group in display_data.items():
-        daily_activity_count = defaultdict(int)
-        group_start_dates = []
-        group_end_dates = []
-        
-        for activity in activities_in_group:
-            if activity.start_date: group_start_dates.append(activity.start_date)
-            if activity.end_date: group_end_dates.append(activity.end_date)
-            for day in activity.work_days: 
-                daily_activity_count[day] += 1
-        
-        group_gantt_data[group_name] = {
-            'daily_summary': {day: 2 if count > 1 else 1 for day, count in daily_activity_count.items()},
-            'project_start': min(group_start_dates) if group_start_dates else None,
-            'project_end': max(group_end_dates) if group_end_dates else None
-        }
+    # --- MODIFIED: Remove complex server-side Gantt summary calculation ---
+    # The frontend will handle all bar rendering
     
+    # --- NEW: Prepare data for frontend JSON ---
+    # Serialize only the data the frontend needs to render the bars
+    gantt_init_data = {
+        'activities': [
+            {
+                'pk': act.pk,
+                'name': act.activity_name,
+                'assignee': act.assignee.name if act.assignee else None,
+                'start_date': act.start_date.isoformat() if act.start_date else None,
+                'end_date': act.end_date.isoformat() if act.end_date else None,
+            } for act in context['activities'] # Use the original full list
+        ],
+        'holidays': [h.isoformat() for h in context['holidays_map'].keys()],
+        'today': context['today'].isoformat()
+    }
+
     # Update context with view-specific data
     context.update({
         'form': form,
         'active_nav': 'projects',
         'display_data': dict(display_data),
         'grouping_method': grouping_method,
-        'group_gantt_data': group_gantt_data,
+        # *** CORRECTION HERE: Pass the raw dictionary, not a JSON string ***
+        'gantt_init_data': gantt_init_data 
     })
     return render(request, 'planner/activity_planner.html', context)
 
-# MODIFIED: This view is also much cleaner now
+# MODIFIED: This view also serializes data for the frontend
 def activity_planner_view(request, project_pk):
     project = get_object_or_404(Project, pk=project_pk)
     form = ActivityForm(initial={'project': project})
@@ -277,11 +257,28 @@ def activity_planner_view(request, project_pk):
     # Use the same helper function to get all the Gantt data
     context = _prepare_gantt_context(activities_qs)
     
+    # --- NEW: Prepare data for frontend JSON ---
+    gantt_init_data = {
+        'activities': [
+            {
+                'pk': act.pk,
+                'name': act.activity_name,
+                'assignee': act.assignee.name if act.assignee else None,
+                'start_date': act.start_date.isoformat() if act.start_date else None,
+                'end_date': act.end_date.isoformat() if act.end_date else None,
+            } for act in context['activities'] # context['activities'] is already filtered
+        ],
+        'holidays': [h.isoformat() for h in context['holidays_map'].keys()],
+        'today': context['today'].isoformat()
+    }
+
     # Update context with view-specific data
     context.update({
         'project': project,
         'form': form,
         'active_nav': 'projects',
+        # *** CORRECTION HERE: Pass the raw dictionary, not a JSON string ***
+        'gantt_init_data': gantt_init_data
     })
     return render(request, 'planner/activity_planner.html', context)
 
