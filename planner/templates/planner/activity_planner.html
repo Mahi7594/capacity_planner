@@ -17,23 +17,22 @@
     .activity-bar { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
     .overlap-bar { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); animation: pulse 2s infinite; }
     
-    /* --- MODIFIED: Summary Bar Styling --- */
+    /* Summary Bar Styling */
     .project-timeline-bar { 
-        background: #bfdbfe;  /* NEW: Light blue color */
+        background: #bfdbfe;  /* Light blue color */
         opacity: 0.9;
-        border-radius: 0;     /* NEW: Square corners for middle parts */
+        border-radius: 0;     /* Square corners for middle parts */
     }
-    /* NEW: Class for the start of the summary bar */
+    /* Class for the start of the summary bar */
     .summary-bar-start {
         border-left: 3px solid #3b82f6; /* Strong blue left border */
         border-radius: 4px 0 0 4px;      /* Rounded outer left corner */
     }
-    /* NEW: Class for the end of the summary bar */
+    /* Class for the end of the summary bar */
     .summary-bar-end {
         border-right: 3px solid #3b82f6; /* Strong blue right border */
         border-radius: 0 4px 4px 0;       /* Rounded outer right corner */
     }
-    /* --- END MODIFICATION --- */
 
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
     .weekend-cell { background-color: #f8fafc; }
@@ -320,28 +319,55 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Action Dropdown Logic ---
+    // --- MODIFIED: Optimized Action Dropdown Logic ---
+    let currentlyOpenMenu = null;
+    let currentlyActiveRow = null;
     const tableContainer = document.querySelector('.table-container');
+
     tableContainer.addEventListener('click', (e) => {
         const actionBtn = e.target.closest('.action-btn');
         if (actionBtn) {
             e.stopPropagation();
             const parentRow = actionBtn.closest('tr');
             const menu = actionBtn.parentElement.querySelector('.action-menu');
-            document.querySelectorAll('tr.row-is-active').forEach(row => row.classList.remove('row-is-active'));
+
+            // If there's an open menu and it's not this one, close it
+            if (currentlyOpenMenu && currentlyOpenMenu !== menu) {
+                currentlyOpenMenu.classList.add('hidden');
+                if (currentlyActiveRow) {
+                    currentlyActiveRow.classList.remove('row-is-active');
+                }
+            }
+
+            // Toggle the current menu
             const isOpening = menu.classList.toggle('hidden');
-            document.querySelectorAll('.action-menu').forEach(m => {
-                if (m !== menu) m.classList.add('hidden');
-            });
-            if (!isOpening) parentRow.classList.add('row-is-active');
+            
+            if (isOpening) {
+                // Menu was just closed
+                parentRow.classList.remove('row-is-active');
+                currentlyOpenMenu = null;
+                currentlyActiveRow = null;
+            } else {
+                // Menu was just opened
+                parentRow.classList.add('row-is-active');
+                currentlyOpenMenu = menu;
+                currentlyActiveRow = parentRow;
+            }
         }
     });
+
+    // --- MODIFIED: Optimized Click-Outside-to-Close Logic ---
     window.addEventListener('click', (e) => {
-        if (!e.target.closest('.action-dropdown')) {
-            document.querySelectorAll('.action-menu').forEach(m => m.classList.add('hidden'));
-            document.querySelectorAll('tr.row-is-active').forEach(row => row.classList.remove('row-is-active'));
+        if (currentlyOpenMenu && !e.target.closest('.action-dropdown')) {
+            currentlyOpenMenu.classList.add('hidden');
+            if (currentlyActiveRow) {
+                currentlyActiveRow.classList.remove('row-is-active');
+            }
+            currentlyOpenMenu = null;
+            currentlyActiveRow = null;
         }
     });
+
 
     // --- Filter Logic ---
     const filterInputs = document.querySelectorAll('.filter-input');
@@ -432,12 +458,11 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll(`.gantt-activity-row[data-group-id="${groupId}"]`).forEach(row => row.classList.add('hidden'));
     });
     
-    // --- NEW: Frontend Gantt Rendering Logic ---
+    // --- Frontend Gantt Rendering Logic ---
     function parseDate(dateStr) {
         if (!dateStr) return null;
         const [year, month, day] = dateStr.split('-').map(Number);
-        // Note: JS months are 0-indexed (0=Jan, 11=Dec)
-        return new Date(Date.UTC(year, month - 1, day)); // Use UTC to avoid timezone issues
+        return new Date(Date.UTC(year, month - 1, day));
     }
 
     function addDays(date, days) {
@@ -446,7 +471,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return newDate;
     }
     
-    // Helper to get date string in YYYY-MM-DD format from a Date object
     function toISODateString(date) {
         return date.toISOString().split('T')[0];
     }
@@ -481,9 +505,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const activitiesMap = new Map(data.activities.map(act => [act.pk, act]));
         const holidaysSet = new Set(data.holidays);
         
-        const dailyOccupancy = new Map(); // Map<dateStr, Set<assigneeName>>
-        const overlaps = new Map(); // Map<dateStr, Set<assigneeName>>
-        const allWorkDays = new Map(); // Map<activityPk, workDayString[]>
+        const dailyOccupancy = new Map();
+        const overlaps = new Map();
+        const allWorkDays = new Map();
 
         // 1. Calculate all work days and populate daily occupancy
         activitiesMap.forEach(act => {
@@ -500,7 +524,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const occupants = dailyOccupancy.get(dateStr);
                     
                     if (occupants.has(act.assignee)) {
-                        // This is an overlap
                         if (!overlaps.has(dateStr)) {
                             overlaps.set(dateStr, new Set());
                         }
@@ -512,21 +535,48 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 2. Render activity bars
+        // --- OPTIMIZATION: Build a cache of all row and cell elements ---
+        console.time('Build DOM Cache');
+        const activityCellCache = new Map(); // Map<pk, Map<dateStr, cellElement>>
+        const groupCellCache = new Map(); // Map<groupId, Map<dateStr, cellElement>>
+
+        // Cache activity row cells
         document.querySelectorAll('.gantt-activity-row').forEach(row => {
             const pk = parseInt(row.dataset.activityPk, 10);
+            const cellMap = new Map();
+            row.querySelectorAll('td.gantt-cell').forEach(cell => {
+                cellMap.set(cell.dataset.date, cell);
+            });
+            activityCellCache.set(pk, cellMap);
+        });
+
+        // Cache group header row cells
+        document.querySelectorAll('.group-header').forEach(row => {
+            const groupId = row.dataset.groupId;
+            const cellMap = new Map();
+            row.querySelectorAll('td.gantt-cell').forEach(cell => {
+                cellMap.set(cell.dataset.date, cell);
+            });
+            groupCellCache.set(groupId, cellMap);
+        });
+        console.timeEnd('Build DOM Cache');
+        
+        // --- End Optimization ---
+
+        // 2. Render activity bars (using the cache)
+        console.time('Render Activity Bars');
+        allWorkDays.forEach((workDays, pk) => {
             const act = activitiesMap.get(pk);
-            const workDays = allWorkDays.get(pk);
+            const cellMap = activityCellCache.get(pk);
             
-            if (!act || !workDays) return;
+            if (!act || !cellMap) return;
 
             workDays.forEach(dateStr => {
-                const cell = row.querySelector(`td.gantt-cell[data-date="${dateStr}"]`);
+                const cell = cellMap.get(dateStr); // <-- FAST lookup
                 if (cell) {
                     let barClass = 'activity-bar';
                     let title = `📋 ${act.name}\n👤 ${act.assignee || 'Unassigned'}\n📅 ${dateStr}`;
 
-                    // Check for overlap
                     if (act.assignee && overlaps.has(dateStr) && overlaps.get(dateStr).has(act.assignee)) {
                         barClass = 'overlap-bar';
                         title = `⚠️ OVERLAP: ${act.assignee} on ${dateStr}\n` + title;
@@ -535,21 +585,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     const barDiv = document.createElement('div');
                     barDiv.className = `gantt-bar ${barClass} h-6 mx-1`;
                     barDiv.title = title;
-                    cell.appendChild(barDiv);
+                    cell.appendChild(barDiv); // This is still fast
                 }
             });
         });
+        console.timeEnd('Render Activity Bars');
         
-        // 3. Render Group Summary Bars
+        // 3. Render Group Summary Bars (using the cache)
+        console.time('Render Group Bars');
         document.querySelectorAll('.group-header').forEach(headerRow => {
             const groupId = headerRow.dataset.groupId;
             const groupName = headerRow.querySelector('span').textContent || groupId;
             if (!groupId) return;
 
+            const cellMap = groupCellCache.get(groupId); // <-- FAST lookup
+            if (!cellMap) return;
+
             const activityRows = document.querySelectorAll(`.gantt-activity-row[data-group-id="${groupId}"]`);
             const groupWorkDaysSet = new Set();
 
-            // Collect all workdays for this group
             activityRows.forEach(actRow => {
                 const pk = parseInt(actRow.dataset.activityPk, 10);
                 const workDays = allWorkDays.get(pk);
@@ -558,34 +612,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            if (groupWorkDaysSet.size === 0) return; // Skip if no activities
+            if (groupWorkDaysSet.size === 0) return;
 
-            // --- MODIFIED: Find min/max date and apply new classes ---
             const sortedGroupDays = Array.from(groupWorkDaysSet).sort();
             const minDate = sortedGroupDays[0];
             const maxDate = sortedGroupDays[sortedGroupDays.length - 1];
 
-            // Render the summary bars in the header row
             sortedGroupDays.forEach(dateStr => {
-                const cell = headerRow.querySelector(`td.gantt-cell[data-date="${dateStr}"]`);
+                const cell = cellMap.get(dateStr); // <-- FAST lookup
                 if (cell) {
                     const barDiv = document.createElement('div');
-                    
                     let barClasses = 'gantt-bar project-timeline-bar h-4 my-3';
-                    if (dateStr === minDate) {
-                        barClasses += ' summary-bar-start';
-                    }
-                    if (dateStr === maxDate) {
-                        barClasses += ' summary-bar-end';
-                    }
+                    
+                    if (dateStr === minDate) barClasses += ' summary-bar-start';
+                    if (dateStr === maxDate) barClasses += ' summary-bar-end';
                     
                     barDiv.className = barClasses; 
                     barDiv.title = `Activity in '${groupName}' on ${dateStr}`;
                     cell.appendChild(barDiv);
                 }
             });
-            // --- END MODIFICATION ---
         });
+        console.timeEnd('Render Group Bars');
         
         console.timeEnd('Frontend Gantt Render');
     }

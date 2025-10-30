@@ -108,8 +108,12 @@
                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
                 </svg>
-                <a href="{% url 'activity_planner' project_pk=activity.project.pk %}" class="text-gray-600 hover:text-indigo-600 font-medium">
-                    {{ activity.project.project_id }}
+                <a href="{{ next_url }}" class="text-gray-600 hover:text-indigo-600 font-medium">
+                    {% if 'all' in next_url %}
+                        Consolidated Planner
+                    {% else %}
+                        {{ activity.project.project_id }}
+                    {% endif %}
                 </a>
                 <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
@@ -302,7 +306,7 @@
                     </div>
 
                     <div class="flex justify-end space-x-4 pt-8 border-t border-gray-200">
-                        <a href="{% url 'activity_planner' project_pk=activity.project.pk %}" 
+                        <a href="{{ next_url }}" 
                            class="btn-secondary text-white py-3 px-6 rounded-lg font-semibold flex items-center">
                             <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>

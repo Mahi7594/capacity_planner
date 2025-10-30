@@ -234,7 +234,6 @@ def consolidated_planner_view(request):
         'active_nav': 'projects',
         'display_data': dict(display_data),
         'grouping_method': grouping_method,
-        # *** CORRECTION HERE: Pass the raw dictionary, not a JSON string ***
         'gantt_init_data': gantt_init_data 
     })
     return render(request, 'planner/activity_planner.html', context)
@@ -277,7 +276,6 @@ def activity_planner_view(request, project_pk):
         'project': project,
         'form': form,
         'active_nav': 'projects',
-        # *** CORRECTION HERE: Pass the raw dictionary, not a JSON string ***
         'gantt_init_data': gantt_init_data
     })
     return render(request, 'planner/activity_planner.html', context)
@@ -317,8 +315,6 @@ def configuration_view(request):
             general_settings, _ = GeneralSettings.objects.get_or_create(pk=1)
             general_settings.working_hours_per_day = request.POST.get('working_hours_per_day', 8.0)
             general_settings.save()
-        # --- MODIFIED ---
-        # Added a new condition to handle the capacity settings form separately.
         elif 'update_capacity_settings' in request.POST:
             for choice, _ in Employee.DESIGNATION_CHOICES:
                 setting, _ = CapacitySettings.objects.get_or_create(designation=choice)
@@ -352,31 +348,39 @@ def delete_holiday_view(request, pk):
 
 def edit_activity_view(request, pk):
     activity = get_object_or_404(Activity, pk=pk)
-    # MODIFIED: Redirect to the correct planner view based on context
-    # We will assume editing always goes back to the specific project planner for simplicity.
-    redirect_url = reverse('activity_planner', kwargs={'project_pk': activity.project.pk})
     
-    # Optional: If you want it to be smarter and redirect to consolidated view if that's where you came from
-    # You would need to pass a 'next' parameter in the URL from the template.
-    # For now, this is a safe default.
+    next_url = request.GET.get('next')
+    default_redirect_url = reverse('activity_planner', kwargs={'project_pk': activity.project.pk})
     
     if request.method == 'POST':
         form = ActivityForm(request.POST, instance=activity)
         if form.is_valid():
             form.save()
-            # To preserve grouping, you could pass it along, but let's keep it simple.
-            return redirect(redirect_url)
+            return redirect(next_url or default_redirect_url)
     else:
         form = ActivityForm(instance=activity)
         
-    context = {'activity': activity, 'form': form, 'project': activity.project}
+    context = {
+        'activity': activity, 
+        'form': form, 
+        'project': activity.project,
+        'next_url': next_url or default_redirect_url
+    }
     return render(request, 'planner/edit_activity.html', context)
 
+# MODIFIED: This view now handles the 'next' parameter
 def delete_activity_view(request, pk):
     activity = get_object_or_404(Activity, pk=pk)
     project_pk = activity.project.pk
+    
+    next_url = request.POST.get('next')
+    
     activity.delete()
-    return redirect('activity_planner', project_pk=project_pk)
+    
+    # *** CORRECTION HERE ***
+    # The 'reverse' function takes kwargs as a dictionary.
+    default_redirect_url = reverse('activity_planner', kwargs={'project_pk': project_pk})
+    return redirect(next_url or default_redirect_url)
 
 def edit_project_type_view(request, pk):
     project_type = get_object_or_404(ProjectType, pk=pk)
