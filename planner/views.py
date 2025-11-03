@@ -368,7 +368,6 @@ def edit_activity_view(request, pk):
     }
     return render(request, 'planner/edit_activity.html', context)
 
-# MODIFIED: This view now handles the 'next' parameter
 def delete_activity_view(request, pk):
     activity = get_object_or_404(Activity, pk=pk)
     project_pk = activity.project.pk
@@ -377,13 +376,17 @@ def delete_activity_view(request, pk):
     
     activity.delete()
     
-    # *** CORRECTION HERE ***
-    # The 'reverse' function takes kwargs as a dictionary.
     default_redirect_url = reverse('activity_planner', kwargs={'project_pk': project_pk})
     return redirect(next_url or default_redirect_url)
 
+# MODIFIED: This view now handles the 'next' parameter
 def edit_project_type_view(request, pk):
     project_type = get_object_or_404(ProjectType, pk=pk)
+    
+    # MODIFIED: Get 'next' URL from GET, or set default
+    next_url = request.GET.get('next')
+    default_redirect_url = reverse('configuration')
+    
     if request.method == 'POST':
         project_type.segment = get_object_or_404(Segment, pk=request.POST.get('segment'))
         project_type.category = get_object_or_404(Category, pk=request.POST.get('category'))
@@ -391,8 +394,18 @@ def edit_project_type_view(request, pk):
         project_type.team_lead_involvement = request.POST.get('team_lead_involvement')
         project_type.manager_involvement = request.POST.get('manager_involvement')
         project_type.save()
-        return redirect('configuration')
-    context = {'type': project_type, 'all_segments': Segment.objects.all(), 'all_categories': Category.objects.all()}
+        
+        # MODIFIED: Get 'next' URL from POST and redirect
+        next_url_from_post = request.POST.get('next')
+        return redirect(next_url_from_post or default_redirect_url)
+    
+    # MODIFIED: Pass 'next_url' to the template context
+    context = {
+        'type': project_type, 
+        'all_segments': Segment.objects.all(), 
+        'all_categories': Category.objects.all(),
+        'next_url': next_url or default_redirect_url
+    }
     return render(request, 'planner/edit_project_type.html', context)
 
 def delete_project_type_view(request, pk):
