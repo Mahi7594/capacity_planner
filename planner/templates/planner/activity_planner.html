@@ -149,7 +149,17 @@
             </div>
         </div>
 
-        <div class="table-container">
+        <div class="table-container relative min-h-[400px]">
+            <div id="gantt-loader" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/60 backdrop-blur-[2px] transition-all duration-300">
+                <div class="flex flex-col items-center p-6 bg-white rounded-xl shadow-2xl border border-indigo-100">
+                    <svg class="w-12 h-12 text-indigo-600 animate-spin mb-3" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span class="text-indigo-800 font-semibold text-sm tracking-wide">Loading Timeline...</span>
+                </div>
+            </div>
+
             <table class="w-full table-auto border-collapse {% if project or grouping_method == 'engineer' %}no-project-col{% endif %}" style="min-width: 4000px;">
                 <thead class="bg-gray-50 sticky top-0 z-40">
                     <tr class="h-8">
@@ -319,7 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- MODIFIED: Optimized Action Dropdown Logic ---
+    // --- Action Dropdown Logic ---
     let currentlyOpenMenu = null;
     let currentlyActiveRow = null;
     const tableContainer = document.querySelector('.table-container');
@@ -331,7 +341,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const parentRow = actionBtn.closest('tr');
             const menu = actionBtn.parentElement.querySelector('.action-menu');
 
-            // If there's an open menu and it's not this one, close it
             if (currentlyOpenMenu && currentlyOpenMenu !== menu) {
                 currentlyOpenMenu.classList.add('hidden');
                 if (currentlyActiveRow) {
@@ -339,16 +348,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Toggle the current menu
             const isOpening = menu.classList.toggle('hidden');
             
             if (isOpening) {
-                // Menu was just closed
                 parentRow.classList.remove('row-is-active');
                 currentlyOpenMenu = null;
                 currentlyActiveRow = null;
             } else {
-                // Menu was just opened
                 parentRow.classList.add('row-is-active');
                 currentlyOpenMenu = menu;
                 currentlyActiveRow = parentRow;
@@ -356,7 +362,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- MODIFIED: Optimized Click-Outside-to-Close Logic ---
     window.addEventListener('click', (e) => {
         if (currentlyOpenMenu && !e.target.closest('.action-dropdown')) {
             currentlyOpenMenu.classList.add('hidden');
@@ -393,7 +398,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     break;
                 }
             }
-            // Check against group collapse state
             const isCollapsed = row.classList.contains('hidden') && !row.style.display;
             if (isCollapsed && isVisible) {
                 // Don't show, but count it for the group header
@@ -439,20 +443,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isCollapsed) {
                     row.classList.add('hidden');
                 } else {
-                    // Only un-hide if not hidden by filter
                     if (row.style.display !== 'none') { 
                         row.classList.remove('hidden');
                     }
                 }
             });
-            // Re-apply filters to ensure consistency
             applyFilters();
         });
 
         if (index > 0) header.classList.add('collapsed');
         else header.classList.remove('collapsed');
     });
-    // Apply initial collapse state
+    
     document.querySelectorAll('.group-header.collapsed').forEach(header => {
         const groupId = header.dataset.groupId;
         document.querySelectorAll(`.gantt-activity-row[data-group-id="${groupId}"]`).forEach(row => row.classList.add('hidden'));
@@ -535,12 +537,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // --- OPTIMIZATION: Build a cache of all row and cell elements ---
-        console.time('Build DOM Cache');
-        const activityCellCache = new Map(); // Map<pk, Map<dateStr, cellElement>>
-        const groupCellCache = new Map(); // Map<groupId, Map<dateStr, cellElement>>
+        // Cache DOM elements
+        const activityCellCache = new Map();
+        const groupCellCache = new Map();
 
-        // Cache activity row cells
         document.querySelectorAll('.gantt-activity-row').forEach(row => {
             const pk = parseInt(row.dataset.activityPk, 10);
             const cellMap = new Map();
@@ -550,7 +550,6 @@ document.addEventListener('DOMContentLoaded', () => {
             activityCellCache.set(pk, cellMap);
         });
 
-        // Cache group header row cells
         document.querySelectorAll('.group-header').forEach(row => {
             const groupId = row.dataset.groupId;
             const cellMap = new Map();
@@ -559,12 +558,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             groupCellCache.set(groupId, cellMap);
         });
-        console.timeEnd('Build DOM Cache');
-        
-        // --- End Optimization ---
 
-        // 2. Render activity bars (using the cache)
-        console.time('Render Activity Bars');
+        // 2. Render activity bars
         allWorkDays.forEach((workDays, pk) => {
             const act = activitiesMap.get(pk);
             const cellMap = activityCellCache.get(pk);
@@ -572,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!act || !cellMap) return;
 
             workDays.forEach(dateStr => {
-                const cell = cellMap.get(dateStr); // <-- FAST lookup
+                const cell = cellMap.get(dateStr);
                 if (cell) {
                     let barClass = 'activity-bar';
                     let title = `📋 ${act.name}\n👤 ${act.assignee || 'Unassigned'}\n📅 ${dateStr}`;
@@ -585,20 +580,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     const barDiv = document.createElement('div');
                     barDiv.className = `gantt-bar ${barClass} h-6 mx-1`;
                     barDiv.title = title;
-                    cell.appendChild(barDiv); // This is still fast
+                    cell.appendChild(barDiv);
                 }
             });
         });
-        console.timeEnd('Render Activity Bars');
         
-        // 3. Render Group Summary Bars (using the cache)
-        console.time('Render Group Bars');
+        // 3. Render Group Summary Bars
         document.querySelectorAll('.group-header').forEach(headerRow => {
             const groupId = headerRow.dataset.groupId;
             const groupName = headerRow.querySelector('span').textContent || groupId;
             if (!groupId) return;
 
-            const cellMap = groupCellCache.get(groupId); // <-- FAST lookup
+            const cellMap = groupCellCache.get(groupId);
             if (!cellMap) return;
 
             const activityRows = document.querySelectorAll(`.gantt-activity-row[data-group-id="${groupId}"]`);
@@ -619,7 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const maxDate = sortedGroupDays[sortedGroupDays.length - 1];
 
             sortedGroupDays.forEach(dateStr => {
-                const cell = cellMap.get(dateStr); // <-- FAST lookup
+                const cell = cellMap.get(dateStr);
                 if (cell) {
                     const barDiv = document.createElement('div');
                     let barClasses = 'gantt-bar project-timeline-bar h-4 my-3';
@@ -633,13 +626,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
-        console.timeEnd('Render Group Bars');
-        
         console.timeEnd('Frontend Gantt Render');
     }
     
-    // Run the renderer
-    renderGantt();
+    // --- Render Execution with Loading State ---
+    const loader = document.getElementById('gantt-loader');
+    
+    // Use setTimeout to allow the browser to paint the loader before the heavy rendering task blocks the thread
+    setTimeout(() => {
+        renderGantt();
+        
+        // Hide Loader with fade effect
+        if (loader) {
+            loader.style.opacity = '0';
+            setTimeout(() => {
+                loader.classList.add('hidden');
+            }, 300); // match duration-300
+        }
+    }, 100);
 });
 </script>
 
