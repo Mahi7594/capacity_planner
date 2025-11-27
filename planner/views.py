@@ -176,6 +176,7 @@ def project_list_view(request):
     return render(request, 'planner/project_list.html', context)
 
 
+# MODIFIED: This view now serializes data for the frontend
 def consolidated_planner_view(request):
     form = ActivityForm()
     grouping_method = request.GET.get('group_by', 'project')
@@ -233,6 +234,7 @@ def consolidated_planner_view(request):
     })
     return render(request, 'planner/activity_planner.html', context)
 
+# MODIFIED: This view also serializes data for the frontend
 def activity_planner_view(request, project_pk):
     project = get_object_or_404(Project, pk=project_pk)
     form = ActivityForm(initial={'project': project})
@@ -273,6 +275,19 @@ def activity_planner_view(request, project_pk):
     })
     return render(request, 'planner/activity_planner.html', context)
 
+# NEW: Helper function to get common workforce context
+def _get_workforce_context():
+    return {
+        'workforce_counts': {
+            'engineers': Employee.objects.filter(designation='ENGINEER', is_active=True).count(),
+            'team_leads': Employee.objects.filter(designation='TEAM_LEAD', is_active=True).count(),
+            'managers': Employee.objects.filter(designation='MANAGER', is_active=True).count(),
+        },
+        'all_employees': Employee.objects.all(),
+        'designation_choices': Employee.DESIGNATION_CHOICES,
+        'active_nav': 'workforce',
+    }
+
 def workforce_view(request):
     error_message = None
     entered_data = {}
@@ -280,8 +295,6 @@ def workforce_view(request):
     if request.method == 'POST' and 'add_employee' in request.POST:
         name = request.POST.get('name')
         designation = request.POST.get('designation')
-        # Checkbox logic for is_active: if checkbox is not checked, it won't be sent in POST
-        # For a dropdown (which we are using now): it sends 'True' or 'False'
         is_active_val = request.POST.get('is_active')
         is_active = True if is_active_val == 'True' else False
         
@@ -293,21 +306,39 @@ def workforce_view(request):
             else:
                 Employee.objects.create(name=name, designation=designation, is_active=is_active)
                 return redirect('workforce')
-                
-    context = {
-        # MODIFIED: Count only active employees for the top stats cards
-        'workforce_counts': {
-            'engineers': Employee.objects.filter(designation='ENGINEER', is_active=True).count(),
-            'team_leads': Employee.objects.filter(designation='TEAM_LEAD', is_active=True).count(),
-            'managers': Employee.objects.filter(designation='MANAGER', is_active=True).count(),
-        },
-        'all_employees': Employee.objects.all(),
-        'designation_choices': Employee.DESIGNATION_CHOICES,
-        'active_nav': 'workforce',
+    
+    # Use helper for context
+    context = _get_workforce_context()
+    context.update({
         'error_message': error_message,
         'entered_data': entered_data,
-    }
+    })
     return render(request, 'planner/workforce.html', context)
+
+# NEW: View to handle employee updates
+def update_employee_view(request, pk):
+    employee = get_object_or_404(Employee, pk=pk)
+    if request.method == 'POST':
+        name = request.POST.get('name')
+        designation = request.POST.get('designation')
+        is_active_val = request.POST.get('is_active')
+        is_active = True if is_active_val == 'True' else False
+
+        if name and designation:
+            # Check duplicates excluding current employee
+            if Employee.objects.filter(name__iexact=name).exclude(pk=pk).exists():
+                # Re-render the workforce page with error
+                context = _get_workforce_context()
+                context['error_message'] = f"Cannot update: Team member with name '{name}' already exists."
+                return render(request, 'planner/workforce.html', context)
+            
+            employee.name = name
+            employee.designation = designation
+            employee.is_active = is_active
+            employee.save()
+            return redirect('workforce')
+            
+    return redirect('workforce')
 
 def toggle_employee_status_view(request, pk):
     if request.method == 'POST':
