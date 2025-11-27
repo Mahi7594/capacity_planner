@@ -133,8 +133,8 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                 </svg>
                 <div>
-                    <p class="text-3xl font-bold text-gray-800">Auto</p>
-                    <p class="text-sm font-medium text-gray-600">Effort Calculation</p>
+                    <p class="text-3xl font-bold text-gray-800">{{ total_forecasted_effort|floatformat:0 }} Days</p>
+                    <p class="text-sm font-medium text-gray-600">Total Est. Effort</p>
                 </div>
             </div>
         </div>
@@ -267,7 +267,7 @@
             </div>
             <div class="bg-white rounded-lg p-4 border border-blue-100">
                 <h4 class="font-semibold text-gray-800 mb-2">3. Automatic Calculations</h4>
-                <p class="text-sm text-gray-600">The system calculates effort estimates based on your configured project types and value benchmarks.</p>
+                <p class="text-sm text-gray-600">The system calculates effort estimates based on your configured project types and benchmarks.</p>
             </div>
             <div class="bg-white rounded-lg p-4 border border-blue-100">
                 <h4 class="font-semibold text-gray-800 mb-2">4. Capacity Planning</h4>

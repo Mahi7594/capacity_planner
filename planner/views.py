@@ -129,14 +129,20 @@ def sales_forecast_view(request):
     pt_map = {(pt.segment.name, pt.category.name): pt.id for pt in ProjectType.objects.select_related('segment', 'category')}
     
     forecast_data = list(SalesForecast.objects.all())
+    total_forecasted_effort = 0
     for item in forecast_data:
         pt_id = pt_map.get((item.segment, item.category))
         brackets = pt_bracket_map.get(pt_id, [])
         item.calculated_effort = calculate_effort_from_value(item.total_amount, brackets)
+        total_forecasted_effort += item.calculated_effort
         # Divide by conversion factor for display in Cr
         item.total_amount = item.total_amount / CR
 
-    context = {'forecast_data': forecast_data, 'active_nav': 'sales_forecast'}
+    context = {
+        'forecast_data': forecast_data, 
+        'active_nav': 'sales_forecast',
+        'total_forecasted_effort': total_forecasted_effort
+    }
     return render(request, 'planner/sales_forecast.html', context)
 
 def project_list_view(request):
