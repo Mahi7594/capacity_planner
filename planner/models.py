@@ -26,8 +26,6 @@ class ProjectType(models.Model):
 
 class Project(models.Model):
     project_id = models.CharField(max_length=100, unique=True, verbose_name="Project Code")
-    # --- REMOVED ---
-    # name = models.CharField(max_length=200, blank=True, verbose_name="Project Name")
     customer_name = models.CharField(max_length=200)
     segment = models.ForeignKey(Segment, on_delete=models.SET_NULL, null=True, blank=True)
     team_lead = models.ForeignKey(
@@ -71,6 +69,8 @@ class Employee(models.Model):
     ]
     name = models.CharField(max_length=100)
     designation = models.CharField(max_length=10, choices=DESIGNATION_CHOICES)
+    is_active = models.BooleanField(default=True, verbose_name="Active Status")
+
     def __str__(self): return self.name
     class Meta: ordering = ['name']
 

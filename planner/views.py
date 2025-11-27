@@ -176,7 +176,6 @@ def project_list_view(request):
     return render(request, 'planner/project_list.html', context)
 
 
-# MODIFIED: This view now serializes data for the frontend
 def consolidated_planner_view(request):
     form = ActivityForm()
     grouping_method = request.GET.get('group_by', 'project')
@@ -209,10 +208,6 @@ def consolidated_planner_view(request):
         for project in Project.objects.order_by('project_id'):
             display_data[project.project_id] = sorted(activities_by_project.get(project.id, []), key=lambda a: a.start_date)
 
-    # --- MODIFIED: Remove complex server-side Gantt summary calculation ---
-    # The frontend will handle all bar rendering
-    
-    # --- NEW: Prepare data for frontend JSON ---
     # Serialize only the data the frontend needs to render the bars
     gantt_init_data = {
         'activities': [
@@ -238,7 +233,6 @@ def consolidated_planner_view(request):
     })
     return render(request, 'planner/activity_planner.html', context)
 
-# MODIFIED: This view also serializes data for the frontend
 def activity_planner_view(request, project_pk):
     project = get_object_or_404(Project, pk=project_pk)
     form = ActivityForm(initial={'project': project})
@@ -256,7 +250,6 @@ def activity_planner_view(request, project_pk):
     # Use the same helper function to get all the Gantt data
     context = _prepare_gantt_context(activities_qs)
     
-    # --- NEW: Prepare data for frontend JSON ---
     gantt_init_data = {
         'activities': [
             {
@@ -281,23 +274,47 @@ def activity_planner_view(request, project_pk):
     return render(request, 'planner/activity_planner.html', context)
 
 def workforce_view(request):
+    error_message = None
+    entered_data = {}
+    
     if request.method == 'POST' and 'add_employee' in request.POST:
         name = request.POST.get('name')
         designation = request.POST.get('designation')
+        # Checkbox logic for is_active: if checkbox is not checked, it won't be sent in POST
+        # For a dropdown (which we are using now): it sends 'True' or 'False'
+        is_active_val = request.POST.get('is_active')
+        is_active = True if is_active_val == 'True' else False
+        
         if name and designation:
-            Employee.objects.create(name=name, designation=designation)
-        return redirect('workforce')
+            # Check for duplicates (case-insensitive)
+            if Employee.objects.filter(name__iexact=name).exists():
+                error_message = f"Team member with name '{name}' already exists."
+                entered_data = {'name': name, 'designation': designation, 'is_active': is_active_val}
+            else:
+                Employee.objects.create(name=name, designation=designation, is_active=is_active)
+                return redirect('workforce')
+                
     context = {
+        # MODIFIED: Count only active employees for the top stats cards
         'workforce_counts': {
-            'engineers': Employee.objects.filter(designation='ENGINEER').count(),
-            'team_leads': Employee.objects.filter(designation='TEAM_LEAD').count(),
-            'managers': Employee.objects.filter(designation='MANAGER').count(),
+            'engineers': Employee.objects.filter(designation='ENGINEER', is_active=True).count(),
+            'team_leads': Employee.objects.filter(designation='TEAM_LEAD', is_active=True).count(),
+            'managers': Employee.objects.filter(designation='MANAGER', is_active=True).count(),
         },
         'all_employees': Employee.objects.all(),
         'designation_choices': Employee.DESIGNATION_CHOICES,
         'active_nav': 'workforce',
+        'error_message': error_message,
+        'entered_data': entered_data,
     }
     return render(request, 'planner/workforce.html', context)
+
+def toggle_employee_status_view(request, pk):
+    if request.method == 'POST':
+        employee = get_object_or_404(Employee, pk=pk)
+        employee.is_active = not employee.is_active
+        employee.save()
+    return redirect('workforce')
 
 def configuration_view(request):
     if request.method == 'POST':
@@ -379,11 +396,8 @@ def delete_activity_view(request, pk):
     default_redirect_url = reverse('activity_planner', kwargs={'project_pk': project_pk})
     return redirect(next_url or default_redirect_url)
 
-# MODIFIED: This view now handles the 'next' parameter
 def edit_project_type_view(request, pk):
     project_type = get_object_or_404(ProjectType, pk=pk)
-    
-    # MODIFIED: Get 'next' URL from GET, or set default
     next_url = request.GET.get('next')
     default_redirect_url = reverse('configuration')
     
@@ -395,11 +409,9 @@ def edit_project_type_view(request, pk):
         project_type.manager_involvement = request.POST.get('manager_involvement')
         project_type.save()
         
-        # MODIFIED: Get 'next' URL from POST and redirect
         next_url_from_post = request.POST.get('next')
         return redirect(next_url_from_post or default_redirect_url)
     
-    # MODIFIED: Pass 'next_url' to the template context
     context = {
         'type': project_type, 
         'all_segments': Segment.objects.all(), 
@@ -420,7 +432,13 @@ def capacity_plan_view(request):
     general_settings, _ = GeneralSettings.objects.get_or_create(pk=1)
     holidays = list(Holiday.objects.values_list('date', flat=True))
     capacity_settings = {c: CapacitySettings.objects.get_or_create(designation=c)[0] for c, _ in Employee.DESIGNATION_CHOICES}
-    workforce_counts = {'ENGINEER': Employee.objects.filter(designation='ENGINEER').count(), 'TEAM_LEAD': Employee.objects.filter(designation='TEAM_LEAD').count(), 'MANAGER': Employee.objects.filter(designation='MANAGER').count()}
+    
+    # MODIFIED: Calculate supply using only ACTIVE employees
+    workforce_counts = {
+        'ENGINEER': Employee.objects.filter(designation='ENGINEER', is_active=True).count(),
+        'TEAM_LEAD': Employee.objects.filter(designation='TEAM_LEAD', is_active=True).count(),
+        'MANAGER': Employee.objects.filter(designation='MANAGER', is_active=True).count()
+    }
     
     supply_data = defaultdict(dict)
     for month in months:
@@ -435,6 +453,7 @@ def capacity_plan_view(request):
             supply_data[designation][month_key] = {'available_hours': gross_hours - non_project_hours - efficiency_loss, 'headcount': count}
 
     demand_hours = defaultdict(lambda: defaultdict(float))
+    # Note: Demand is based on ACTIVITIES. Even if assigned to inactive user, work remains.
     for activity in Activity.objects.select_related('assignee').filter(assignee__isnull=False, start_date__isnull=False, end_date__isnull=False):
         daily_hours = general_settings.working_hours_per_day
         current_date = activity.start_date
@@ -475,11 +494,9 @@ def capacity_plan_view(request):
                 demand_hours['MANAGER'][month_key] += daily_mgr_hours
             current_date += timedelta(days=1)
     
-    # NEW: Calculate chart data for capacity requirements
     live_workload_by_month = defaultdict(float)
     forecasted_workload_by_month = defaultdict(float)
     
-    # Calculate live/backlog workload from existing activities
     for activity in Activity.objects.select_related('assignee').filter(
         assignee__isnull=False, start_date__isnull=False, end_date__isnull=False
     ):
@@ -490,7 +507,6 @@ def capacity_plan_view(request):
                 live_workload_by_month[month_key] += general_settings.working_hours_per_day
             current_date += timedelta(days=1)
     
-    # Calculate forecasted workload
     for forecast in SalesForecast.objects.filter(start_date__isnull=False, end_date__isnull=False):
         pt_id = pt_map.get((forecast.segment, forecast.category))
         if not pt_id:
@@ -510,7 +526,6 @@ def capacity_plan_view(request):
         if not p_type:
             continue
         
-        # Total daily hours considering all roles
         total_daily_hours = general_settings.working_hours_per_day * daily_effort_factor * (
             (p_type.engineer_involvement + p_type.team_lead_involvement + p_type.manager_involvement) / 100
         )
@@ -522,7 +537,6 @@ def capacity_plan_view(request):
                 forecasted_workload_by_month[month_key] += total_daily_hours
             current_date += timedelta(days=1)
     
-    # Prepare chart data
     chart_data = []
     for month in months:
         month_key = month.strftime('%Y-%m')
@@ -561,7 +575,7 @@ def capacity_plan_view(request):
     context = {
         'active_nav': 'capacity_plan', 
         'report_data': report,
-        'chart_data': chart_data  # NEW: Add chart data to context
+        'chart_data': chart_data
     }
     return render(request, 'planner/capacity_plan.html', context)
 
@@ -574,7 +588,6 @@ def get_effort_brackets_for_project_type(request, pk):
     for bracket in project_type.effort_brackets.all():
         brackets_data.append({
             'id': bracket.id,
-            # Divide by CR to display value in Cr in the modal
             'project_value': bracket.project_value / CR,
             'effort_days': bracket.effort_days
         })
@@ -585,7 +598,6 @@ def add_effort_bracket_for_project_type(request, pk):
     project_type = get_object_or_404(ProjectType, pk=pk)
     data = json.loads(request.body)
     try:
-        # Multiply by CR to save the full value in the database
         value_in_cr = float(data.get('project_value'))
         full_value = value_in_cr * CR
         
@@ -596,7 +608,7 @@ def add_effort_bracket_for_project_type(request, pk):
         )
         response_data = {
             'status': 'success', 'id': bracket.id,
-            'project_value': bracket.project_value / CR, # Send back in Cr
+            'project_value': bracket.project_value / CR,
             'effort_days': bracket.effort_days, 'created': created
         }
         return JsonResponse(response_data)

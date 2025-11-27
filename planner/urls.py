@@ -1,3 +1,5 @@
+# planner/urls.py
+
 from django.urls import path
 from . import views
 
@@ -22,4 +24,7 @@ urlpatterns = [
     # NEW: URLs for benchmark modal
     path('api/project-type/<int:pk>/brackets/', views.get_effort_brackets_for_project_type, name='get_effort_brackets'),
     path('api/project-type/<int:pk>/add-bracket/', views.add_effort_bracket_for_project_type, name='add_effort_bracket'),
+    
+    # NEW: Toggle Employee Status
+    path('employee/<int:pk>/toggle-status/', views.toggle_employee_status_view, name='toggle_employee_status'),
 ]
