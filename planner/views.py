@@ -490,13 +490,24 @@ def capacity_plan_view(request):
             supply_data[designation][month_key] = {'available_hours': gross_hours - non_project_hours - efficiency_loss, 'headcount': count}
 
     demand_hours = defaultdict(lambda: defaultdict(float))
+    
+    # NEW: Dictionaries for segment breakdowns
+    live_workload_by_segment = defaultdict(lambda: defaultdict(float))
+    forecasted_workload_by_segment = defaultdict(lambda: defaultdict(float))
+    
     # Note: Demand is based on ACTIVITIES. Even if assigned to inactive user, work remains.
-    for activity in Activity.objects.select_related('assignee').filter(assignee__isnull=False, start_date__isnull=False, end_date__isnull=False):
+    # MODIFIED: Added project__segment to select_related
+    for activity in Activity.objects.select_related('assignee', 'project__segment').filter(assignee__isnull=False, start_date__isnull=False, end_date__isnull=False):
         daily_hours = general_settings.working_hours_per_day
         current_date = activity.start_date
         while current_date <= activity.end_date:
             if current_date.weekday() < 5 and current_date not in holidays:
-                demand_hours[activity.assignee.designation][current_date.strftime('%Y-%m')] += daily_hours
+                m_key = current_date.strftime('%Y-%m')
+                demand_hours[activity.assignee.designation][m_key] += daily_hours
+                
+                # NEW: Track per segment
+                if activity.project.segment:
+                    live_workload_by_segment[activity.project.segment.name][m_key] += daily_hours
             current_date += timedelta(days=1)
 
     project_types_with_brackets = ProjectType.objects.prefetch_related('effort_brackets')
@@ -522,6 +533,10 @@ def capacity_plan_view(request):
         daily_eng_hours = general_settings.working_hours_per_day * (p_type.engineer_involvement / 100) * daily_effort_factor
         daily_tl_hours = general_settings.working_hours_per_day * (p_type.team_lead_involvement / 100) * daily_effort_factor
         daily_mgr_hours = general_settings.working_hours_per_day * (p_type.manager_involvement / 100) * daily_effort_factor
+        
+        # Calculate total daily hours for this forecast
+        total_daily_hours = daily_eng_hours + daily_tl_hours + daily_mgr_hours
+        
         current_date = forecast.start_date
         while current_date <= forecast.end_date:
             if current_date.weekday() < 5 and current_date not in holidays:
@@ -529,10 +544,24 @@ def capacity_plan_view(request):
                 demand_hours['ENGINEER'][month_key] += daily_eng_hours
                 demand_hours['TEAM_LEAD'][month_key] += daily_tl_hours
                 demand_hours['MANAGER'][month_key] += daily_mgr_hours
+                
+                # NEW: Track per segment
+                if forecast.segment:
+                    forecasted_workload_by_segment[forecast.segment][month_key] += total_daily_hours
             current_date += timedelta(days=1)
     
+    # --- Prepare Global Chart Data ---
     live_workload_by_month = defaultdict(float)
     forecasted_workload_by_month = defaultdict(float)
+    
+    # Re-calculate totals from the main logic or just sum up (easier to just reuse existing logic for global)
+    # Actually, let's reuse the variables we already populated in the new logic above to avoid looping twice
+    # But since the above loops were mainly for 'demand_hours' breakdown, let's stick to the previous pattern
+    # for clarity, but optimized to not re-loop everything. 
+    
+    # Wait, I already added logic to populate `live_workload_by_segment`. 
+    # I can derive global totals from segment totals? No, because some activities might not have a segment.
+    # So I need to keep the global calculation.
     
     for activity in Activity.objects.select_related('assignee').filter(
         assignee__isnull=False, start_date__isnull=False, end_date__isnull=False
@@ -543,37 +572,28 @@ def capacity_plan_view(request):
                 month_key = current_date.strftime('%Y-%m')
                 live_workload_by_month[month_key] += general_settings.working_hours_per_day
             current_date += timedelta(days=1)
-    
+            
     for forecast in SalesForecast.objects.filter(start_date__isnull=False, end_date__isnull=False):
         pt_id = pt_map.get((forecast.segment, forecast.category))
-        if not pt_id:
-            continue
-        
+        if not pt_id: continue
         brackets = pt_bracket_map.get(pt_id, [])
         calculated_effort_days = calculate_effort_from_value(forecast.total_amount, brackets)
-        if calculated_effort_days <= 0:
-            continue
-        
+        if calculated_effort_days <= 0: continue
         total_window_days = count_working_days(forecast.start_date, forecast.end_date, holidays)
-        if total_window_days <= 0:
-            continue
-        
+        if total_window_days <= 0: continue
         daily_effort_factor = calculated_effort_days / total_window_days
         p_type = project_type_map.get(pt_id)
-        if not p_type:
-            continue
-        
+        if not p_type: continue
         total_daily_hours = general_settings.working_hours_per_day * daily_effort_factor * (
             (p_type.engineer_involvement + p_type.team_lead_involvement + p_type.manager_involvement) / 100
         )
-        
         current_date = forecast.start_date
         while current_date <= forecast.end_date:
             if current_date.weekday() < 5 and current_date not in holidays:
                 month_key = current_date.strftime('%Y-%m')
                 forecasted_workload_by_month[month_key] += total_daily_hours
             current_date += timedelta(days=1)
-    
+
     chart_data = []
     for month in months:
         month_key = month.strftime('%Y-%m')
@@ -589,6 +609,24 @@ def capacity_plan_view(request):
             'total': round(live_hours + forecast_hours, 1)
         })
     
+    # NEW: Prepare Segment Chart Data
+    segment_charts = []
+    all_segments = Segment.objects.all().order_by('name')
+    for segment in all_segments:
+        seg_data = {'name': segment.name, 'data': []}
+        for month in months:
+            m_key = month.strftime('%Y-%m')
+            m_label = month.strftime('%b %Y')
+            live = live_workload_by_segment[segment.name].get(m_key, 0)
+            forecast = forecasted_workload_by_segment[segment.name].get(m_key, 0)
+            seg_data['data'].append({
+                'month': m_label,
+                'live_workload': round(live, 1),
+                'forecasted_workload': round(forecast, 1),
+                'total': round(live + forecast, 1)
+            })
+        segment_charts.append(seg_data)
+
     report = []
     for des_value, des_display in Employee.DESIGNATION_CHOICES:
         des_data = {'designation': des_display, 'months': []}
@@ -612,7 +650,8 @@ def capacity_plan_view(request):
     context = {
         'active_nav': 'capacity_plan', 
         'report_data': report,
-        'chart_data': chart_data
+        'chart_data': chart_data,
+        'segment_charts': segment_charts # NEW
     }
     return render(request, 'planner/capacity_plan.html', context)
 

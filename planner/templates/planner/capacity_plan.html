@@ -59,7 +59,7 @@
             <div class="flex items-center">
                 <div class="flex-shrink-0">
                     <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
                     </svg>
                 </div>
                 <div class="ml-4">
@@ -136,7 +136,7 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+    <div class="bg-white rounded-lg shadow-lg overflow-hidden mb-8">
         <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
             <div class="flex items-center justify-between">
                 <div>
@@ -286,7 +286,7 @@
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow-lg overflow-hidden mt-8">
+    <div class="bg-white rounded-lg shadow-lg overflow-hidden mt-8 mb-8">
         <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
             <div class="flex items-center">
                 <svg class="w-8 h-8 text-gray-600 mr-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -334,11 +334,48 @@
             </div>
         </div>
     </div>
+
+    {% if segment_charts %}
+    <div class="mt-8 mb-8">
+        <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center">
+            <svg class="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+            Segment Capacity Breakdown
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {% for segment in segment_charts %}
+            <div class="bg-white rounded-lg shadow-lg p-4 relative group hover:shadow-xl transition-all">
+                <div class="flex justify-between items-center mb-2">
+                    <h4 class="font-semibold text-gray-700 truncate" title="{{ segment.name }}">{{ segment.name }}</h4>
+                    <button onclick="openMaximizeModal({{ forloop.counter0 }})" class="p-1 text-gray-400 hover:text-indigo-600 transition-colors" title="Maximize Chart">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                    </button>
+                </div>
+                <div class="h-48">
+                    <canvas id="chart-segment-{{ forloop.counter0 }}"></canvas>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
 </div>
+
+<div id="graphModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-70 overflow-y-auto h-full w-full z-50 flex items-center justify-center">
+    <div class="relative mx-auto p-6 border w-full max-w-5xl shadow-2xl rounded-xl bg-white m-4">
+        <div class="flex justify-between items-center pb-4 border-b">
+            <h3 class="text-2xl font-bold text-gray-800" id="modalTitle">Segment Detail</h3>
+            <button onclick="closeGraphModal()" class="text-gray-400 hover:text-gray-600 text-3xl font-bold">&times;</button>
+        </div>
+        <div class="mt-4 h-[500px]">
+            <canvas id="modalChart"></canvas>
+        </div>
+    </div>
+</div>
+
+{{ segment_charts|json_script:"segment-data" }}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
@@ -346,6 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeControls();
     generateAlerts();
     renderCapacityChart();
+    renderSegmentCharts();
 });
 
 function calculateSummaryStats() {
@@ -372,7 +410,6 @@ function renderCapacityChart() {
     const ctx = document.getElementById('capacityChart');
 
     if (!chartData || chartData.length === 0 || !ctx) {
-        console.log("No chart data or canvas element found.");
         return;
     }
     
@@ -434,37 +471,21 @@ function renderCapacityChart() {
                 title: { display: false },
                 legend: { display: false },
                 datalabels: {
-                    // *** THIS IS THE CORRECTED LINE ***
-                    // Display labels only for datasets that are NOT of type 'line'.
                     display: context => context.dataset.type !== 'line',
                     anchor: 'end',
                     align: 'end',
                     color: '#4b5563',
-                    font: {
-                        weight: 'bold',
-                        size: 10
-                    },
+                    font: { weight: 'bold', size: 10 },
                     formatter: (value) => value > 0 ? Math.round(value) : null,
                 }
             },
             scales: {
-                x: {
-                    stacked: true,
-                    grid: { display: false }
-                },
-                y: {
-                    stacked: true,
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Man Hours'
-                    }
-                }
+                x: { stacked: true, grid: { display: false } },
+                y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Man Hours' } }
             }
         }
     });
 
-    // --- Update Chart Summary Cards ---
     const totalLive = liveWorkloadData.reduce((a, b) => a + b, 0);
     const totalForecast = forecastedWorkloadData.reduce((a, b) => a + b, 0);
     
@@ -482,6 +503,132 @@ function renderCapacityChart() {
     document.getElementById('peakMonth').textContent = peakMonth;
 }
 
+// --- Segment Charts Logic ---
+const segmentData = JSON.parse(document.getElementById('segment-data').textContent);
+let modalChartInstance = null;
+
+function renderSegmentCharts() {
+    segmentData.forEach((seg, index) => {
+        const ctx = document.getElementById(`chart-segment-${index}`);
+        if (!ctx) return;
+
+        const labels = seg.data.map(d => d.month);
+        const live = seg.data.map(d => d.live_workload);
+        const forecast = seg.data.map(d => d.forecasted_workload);
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Live',
+                        data: live,
+                        backgroundColor: '#8b5cf6',
+                        stack: 'combined'
+                    },
+                    {
+                        label: 'Forecast',
+                        data: forecast,
+                        backgroundColor: '#facc15',
+                        stack: 'combined'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    datalabels: { display: false },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: { display: false }, // Hide X axis for cleaner small chart
+                    y: { display: false, stacked: true } // Hide Y axis
+                }
+            }
+        });
+    });
+}
+
+function openMaximizeModal(index) {
+    const seg = segmentData[index];
+    const modal = document.getElementById('graphModal');
+    document.getElementById('modalTitle').textContent = `${seg.name} - Capacity Detail`;
+    modal.classList.remove('hidden');
+
+    const ctx = document.getElementById('modalChart').getContext('2d');
+    
+    // Destroy previous chart if exists
+    if (modalChartInstance) {
+        modalChartInstance.destroy();
+    }
+
+    const labels = seg.data.map(d => d.month);
+    const live = seg.data.map(d => d.live_workload);
+    const forecast = seg.data.map(d => d.forecasted_workload);
+
+    modalChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Live Workload',
+                    data: live,
+                    backgroundColor: '#8b5cf6',
+                    borderColor: '#7c3aed',
+                    borderWidth: 1,
+                    order: 2
+                },
+                {
+                    label: 'Forecasted Workload',
+                    data: forecast,
+                    backgroundColor: '#facc15',
+                    borderColor: '#eab308',
+                    borderWidth: 1,
+                    order: 2
+                },
+                {
+                    type: 'line',
+                    label: 'Total Trend',
+                    data: live.map((val, i) => val + forecast[i]),
+                    borderColor: '#4f46e5',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.3,
+                    order: 1
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' },
+                datalabels: {
+                    display: context => context.dataset.type !== 'line',
+                    anchor: 'end',
+                    align: 'end',
+                    formatter: (value) => value > 0 ? Math.round(value) : null,
+                    font: { size: 10 }
+                }
+            },
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Hours' } }
+            }
+        }
+    });
+}
+
+function closeGraphModal() {
+    document.getElementById('graphModal').classList.add('hidden');
+}
 
 function initializeControls() {
     const viewMode = document.getElementById('viewMode');
@@ -527,6 +674,14 @@ function exportReport() {
 
 function refreshData() {
     window.location.reload();
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('graphModal');
+    if (event.target == modal) {
+        closeGraphModal();
+    }
 }
 </script>
 {% endblock %}
