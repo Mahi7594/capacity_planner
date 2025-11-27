@@ -19,26 +19,17 @@ from django.views.decorators.http import require_POST
 # Define this constant at the top of the file to avoid "magic numbers"
 CR = 10_000_000
 
-# MODIFIED: Helper function is now much simpler.
 def _prepare_gantt_context(activities_qs):
-    """
-    Takes a queryset of activities and returns a context dictionary 
-    with the date range and header data for a Gantt chart.
-    
-    All work_day and overlap calculation is moved to the frontend.
-    """
     activities_list = list(activities_qs)
     today = date.today()
     
     holidays_map = {h.date: h.description for h in Holiday.objects.all()}
 
-    # 1. Determine the date range for the Gantt chart
     min_start_dates = [a.start_date for a in activities_list if a.start_date]
     max_end_dates = [a.end_date for a in activities_list if a.end_date]
     gantt_start_date = min(min_start_dates) - timedelta(days=7) if min_start_dates else today - timedelta(days=7)
     gantt_end_date = max(max_end_dates) + timedelta(days=60) if max_end_dates else today + timedelta(days=60)
             
-    # 2. Build the gantt_data dictionary for headers
     gantt_data = {'start_date': gantt_start_date, 'end_date': gantt_end_date, 'months': OrderedDict()}
     header_dates = [gantt_start_date + timedelta(days=i) for i in range((gantt_end_date - gantt_start_date).days + 1)]
     for d in header_dates:
@@ -47,7 +38,7 @@ def _prepare_gantt_context(activities_qs):
     gantt_data['header_dates'] = header_dates
     
     return {
-        'activities': activities_list, # Pass the original list for grouping
+        'activities': activities_list,
         'gantt_data': gantt_data,
         'today': today,
         'holidays_map': holidays_map,
@@ -57,7 +48,7 @@ def sales_forecast_view(request):
     if request.method == 'POST':
         if 'save_data' in request.POST:
             data = json.loads(request.POST.get('data', '[]'))
-            SalesForecast.objects.all().delete()  # Clear existing data first
+            SalesForecast.objects.all().delete()
             
             for item in data:
                 opportunity_id = item.get('Opportunity', '')
@@ -65,41 +56,33 @@ def sales_forecast_view(request):
                     continue
                     
                 try:
-                    # Handle the Total Amount - check both possible keys
                     amount_str = str(item.get('Total Amount (in Cr)', item.get('Total Amount', '0'))).replace(',', '')
                     total_amount = float(amount_str) * CR if amount_str else 0.0
-                    
-                    # Handle probability
                     prob_str = str(item.get('Probability(%)', '0')).replace('%', '')
                     probability = float(prob_str) if prob_str else 0.0
                     
-                    # Handle dates - support both Y-m-d and d-m-Y formats
                     start_date_val = None
                     end_date_val = None
                     
                     start_date_str = item.get('Start Date', '')
                     if start_date_str:
                         try:
-                            # Try Y-m-d format first
                             start_date_val = datetime.strptime(start_date_str, '%Y-%m-%d').date()
                         except ValueError:
                             try:
-                                # Try d-m-Y format
                                 start_date_val = datetime.strptime(start_date_str, '%d-%m-%Y').date()
                             except ValueError:
-                                print(f"Could not parse start date: {start_date_str}")
+                                pass
                     
                     end_date_str = item.get('End date', '')
                     if end_date_str:
                         try:
-                            # Try Y-m-d format first
                             end_date_val = datetime.strptime(end_date_str, '%Y-%m-%d').date()
                         except ValueError:
                             try:
-                                # Try d-m-Y format
                                 end_date_val = datetime.strptime(end_date_str, '%d-%m-%Y').date()
                             except ValueError:
-                                print(f"Could not parse end date: {end_date_str}")
+                                pass
                     
                     SalesForecast.objects.update_or_create(
                         opportunity=opportunity_id,
@@ -113,8 +96,7 @@ def sales_forecast_view(request):
                             'end_date': end_date_val
                         }
                     )
-                except (ValueError, TypeError) as e:
-                    print(f"Could not process row for {opportunity_id}: {e}")
+                except (ValueError, TypeError):
                     continue
                     
             return JsonResponse({'status': 'success'})
@@ -123,7 +105,6 @@ def sales_forecast_view(request):
             SalesForecast.objects.all().delete()
             return redirect('sales_forecast')
 
-    # Calculate effort for display
     project_types_with_brackets = ProjectType.objects.prefetch_related('effort_brackets')
     pt_bracket_map = {pt.id: list(pt.effort_brackets.all()) for pt in project_types_with_brackets}
     pt_map = {(pt.segment.name, pt.category.name): pt.id for pt in ProjectType.objects.select_related('segment', 'category')}
@@ -135,7 +116,6 @@ def sales_forecast_view(request):
         brackets = pt_bracket_map.get(pt_id, [])
         item.calculated_effort = calculate_effort_from_value(item.total_amount, brackets)
         total_forecasted_effort += item.calculated_effort
-        # Divide by conversion factor for display in Cr
         item.total_amount = item.total_amount / CR
 
     context = {
@@ -149,23 +129,17 @@ def project_list_view(request):
     form = ProjectForm()
     if request.method == 'POST':
         project_id = request.POST.get('project_id_hidden')
-        
-        # If a project ID is present, we are editing an existing project.
         if project_id:
             instance = get_object_or_404(Project, pk=project_id)
             form = ProjectForm(request.POST, instance=instance)
-        # Otherwise, we are creating a new project.
         else:
             form = ProjectForm(request.POST)
             
         if form.is_valid():
             form.save()
             return redirect('project_list')
-        # If form is not valid, the view will re-render with the form object
-        # containing the errors, which you can display in your template.
     
     projects = Project.objects.select_related('segment').prefetch_related('activities').all()
-    
     total_activities_count = Activity.objects.count()
     today = date.today()
     pending_activities_count = Activity.objects.filter(start_date__gt=today).count()
@@ -181,8 +155,6 @@ def project_list_view(request):
     }
     return render(request, 'planner/project_list.html', context)
 
-
-# MODIFIED: This view now serializes data for the frontend
 def consolidated_planner_view(request):
     form = ActivityForm()
     grouping_method = request.GET.get('group_by', 'project')
@@ -193,29 +165,22 @@ def consolidated_planner_view(request):
             query_string = urlencode({'group_by': grouping_method})
             return redirect(f"{reverse('consolidated_planner')}?{query_string}")
 
-    # Start with the base queryset
     all_activities_qs = Activity.objects.select_related('project', 'project_type__category', 'assignee').all()
-    
-    # Prepare the common context data using our simplified helper function
     context = _prepare_gantt_context(all_activities_qs)
 
-    # Grouping logic remains specific to this view
     display_data = defaultdict(list)
     if grouping_method == 'engineer':
-        # Use the processed list from the context
         sorted_activities = sorted(context['activities'], key=lambda a: (a.assignee.name if a.assignee else "Unassigned", a.start_date))
         for act in sorted_activities:
             display_data[act.assignee.name if act.assignee else "Unassigned"].append(act)
     else: 
         grouping_method = 'project'
         activities_by_project = defaultdict(list)
-        # Use the processed list from the context
         for act in context['activities']:
             activities_by_project[act.project_id].append(act)
         for project in Project.objects.order_by('project_id'):
             display_data[project.project_id] = sorted(activities_by_project.get(project.id, []), key=lambda a: a.start_date)
 
-    # Serialize only the data the frontend needs to render the bars
     gantt_init_data = {
         'activities': [
             {
@@ -224,13 +189,12 @@ def consolidated_planner_view(request):
                 'assignee': act.assignee.name if act.assignee else None,
                 'start_date': act.start_date.isoformat() if act.start_date else None,
                 'end_date': act.end_date.isoformat() if act.end_date else None,
-            } for act in context['activities'] # Use the original full list
+            } for act in context['activities']
         ],
         'holidays': [h.isoformat() for h in context['holidays_map'].keys()],
         'today': context['today'].isoformat()
     }
 
-    # Update context with view-specific data
     context.update({
         'form': form,
         'active_nav': 'projects',
@@ -240,7 +204,6 @@ def consolidated_planner_view(request):
     })
     return render(request, 'planner/activity_planner.html', context)
 
-# MODIFIED: This view also serializes data for the frontend
 def activity_planner_view(request, project_pk):
     project = get_object_or_404(Project, pk=project_pk)
     form = ActivityForm(initial={'project': project})
@@ -250,12 +213,10 @@ def activity_planner_view(request, project_pk):
             form.save()
             return redirect('activity_planner', project_pk=project.pk)
 
-    # Get the activities for this specific project
     activities_qs = Activity.objects.filter(project=project).select_related(
         'project', 'project_type__category', 'assignee'
     ).order_by('start_date')
 
-    # Use the same helper function to get all the Gantt data
     context = _prepare_gantt_context(activities_qs)
     
     gantt_init_data = {
@@ -266,13 +227,12 @@ def activity_planner_view(request, project_pk):
                 'assignee': act.assignee.name if act.assignee else None,
                 'start_date': act.start_date.isoformat() if act.start_date else None,
                 'end_date': act.end_date.isoformat() if act.end_date else None,
-            } for act in context['activities'] # context['activities'] is already filtered
+            } for act in context['activities']
         ],
         'holidays': [h.isoformat() for h in context['holidays_map'].keys()],
         'today': context['today'].isoformat()
     }
 
-    # Update context with view-specific data
     context.update({
         'project': project,
         'form': form,
@@ -281,7 +241,6 @@ def activity_planner_view(request, project_pk):
     })
     return render(request, 'planner/activity_planner.html', context)
 
-# NEW: Helper function to get common workforce context
 def _get_workforce_context():
     return {
         'workforce_counts': {
@@ -305,7 +264,6 @@ def workforce_view(request):
         is_active = True if is_active_val == 'True' else False
         
         if name and designation:
-            # Check for duplicates (case-insensitive)
             if Employee.objects.filter(name__iexact=name).exists():
                 error_message = f"Team member with name '{name}' already exists."
                 entered_data = {'name': name, 'designation': designation, 'is_active': is_active_val}
@@ -313,7 +271,6 @@ def workforce_view(request):
                 Employee.objects.create(name=name, designation=designation, is_active=is_active)
                 return redirect('workforce')
     
-    # Use helper for context
     context = _get_workforce_context()
     context.update({
         'error_message': error_message,
@@ -321,7 +278,6 @@ def workforce_view(request):
     })
     return render(request, 'planner/workforce.html', context)
 
-# NEW: View to handle employee updates
 def update_employee_view(request, pk):
     employee = get_object_or_404(Employee, pk=pk)
     if request.method == 'POST':
@@ -331,9 +287,7 @@ def update_employee_view(request, pk):
         is_active = True if is_active_val == 'True' else False
 
         if name and designation:
-            # Check duplicates excluding current employee
             if Employee.objects.filter(name__iexact=name).exclude(pk=pk).exists():
-                # Re-render the workforce page with error
                 context = _get_workforce_context()
                 context['error_message'] = f"Cannot update: Team member with name '{name}' already exists."
                 return render(request, 'planner/workforce.html', context)
@@ -343,7 +297,6 @@ def update_employee_view(request, pk):
             employee.is_active = is_active
             employee.save()
             return redirect('workforce')
-            
     return redirect('workforce')
 
 def toggle_employee_status_view(request, pk):
@@ -402,7 +355,6 @@ def delete_holiday_view(request, pk):
 
 def edit_activity_view(request, pk):
     activity = get_object_or_404(Activity, pk=pk)
-    
     next_url = request.GET.get('next')
     default_redirect_url = reverse('activity_planner', kwargs={'project_pk': activity.project.pk})
     
@@ -425,11 +377,8 @@ def edit_activity_view(request, pk):
 def delete_activity_view(request, pk):
     activity = get_object_or_404(Activity, pk=pk)
     project_pk = activity.project.pk
-    
     next_url = request.POST.get('next')
-    
     activity.delete()
-    
     default_redirect_url = reverse('activity_planner', kwargs={'project_pk': project_pk})
     return redirect(next_url or default_redirect_url)
 
@@ -462,54 +411,120 @@ def delete_project_type_view(request, pk):
     return redirect('configuration')
 
 def capacity_plan_view(request):
+    view_type = request.GET.get('view_type', 'month')
     today = date.today()
-    months = [(today.replace(day=1) + timedelta(days=31*i)).replace(day=1) for i in range(12)]
-    month_keys = [m.strftime('%Y-%m') for m in months]
-    
-    general_settings, _ = GeneralSettings.objects.get_or_create(pk=1)
     holidays = list(Holiday.objects.values_list('date', flat=True))
+    general_settings, _ = GeneralSettings.objects.get_or_create(pk=1)
     capacity_settings = {c: CapacitySettings.objects.get_or_create(designation=c)[0] for c, _ in Employee.DESIGNATION_CHOICES}
     
-    # MODIFIED: Calculate supply using only ACTIVE employees
     workforce_counts = {
         'ENGINEER': Employee.objects.filter(designation='ENGINEER', is_active=True).count(),
         'TEAM_LEAD': Employee.objects.filter(designation='TEAM_LEAD', is_active=True).count(),
         'MANAGER': Employee.objects.filter(designation='MANAGER', is_active=True).count()
     }
     
+    # 1. Define Periods based on View Type
+    periods = []
+    if view_type == 'week':
+        # Start from Monday of current week
+        start_date = today - timedelta(days=today.weekday())
+        for i in range(24): # 24 Weeks (~6 months)
+            p_start = start_date + timedelta(weeks=i)
+            p_end = p_start + timedelta(days=6)
+            periods.append({
+                'start': p_start,
+                'end': p_end,
+                'key': p_start.strftime('%Y-W%W'),
+                'label': p_start.strftime('W%W %d %b')
+            })
+    elif view_type == 'quarter':
+        # Start of current quarter
+        q_month = (today.month - 1) // 3 * 3 + 1
+        start_date = date(today.year, q_month, 1)
+        for i in range(8): # 8 Quarters (2 years)
+            year_offset = (start_date.month + (i*3) - 1) // 12
+            month = (start_date.month + (i*3) - 1) % 12 + 1
+            year = start_date.year + year_offset
+            p_start = date(year, month, 1)
+            
+            if month >= 10:
+                p_end = date(year + 1, 1, 1) - timedelta(days=1)
+            else:
+                p_end = date(year, month + 3, 1) - timedelta(days=1)
+            
+            q_label = f"Q{(month-1)//3 + 1} {year}"
+            periods.append({'start': p_start, 'end': p_end, 'key': q_label, 'label': q_label})
+    else: # Month (Default)
+        start_date = today.replace(day=1)
+        for i in range(12):
+            year_offset = (start_date.month + i - 1) // 12
+            month = (start_date.month + i - 1) % 12 + 1
+            year = start_date.year + year_offset
+            p_start = date(year, month, 1)
+            _, last_day = calendar.monthrange(year, month)
+            p_end = date(year, month, last_day)
+            periods.append({
+                'start': p_start, 
+                'end': p_end, 
+                'key': p_start.strftime('%Y-%m'), 
+                'label': p_start.strftime('%b %Y')
+            })
+
+    # Pre-compute date-to-period key map for the total range
+    date_to_key = {}
+    if periods:
+        min_date = periods[0]['start']
+        max_date = periods[-1]['end']
+        curr = min_date
+        while curr <= max_date:
+            for p in periods:
+                if p['start'] <= curr <= p['end']:
+                    date_to_key[curr] = p['key']
+                    break
+            curr += timedelta(days=1)
+
+    # 2. Calculate Supply
     supply_data = defaultdict(dict)
-    for month in months:
-        _, num_days_in_month = calendar.monthrange(month.year, month.month)
-        working_days_in_month = count_working_days(date(month.year, month.month, 1), date(month.year, month.month, num_days_in_month), holidays)
+    for p in periods:
+        working_days = count_working_days(p['start'], p['end'], holidays)
+        # Approximate factor to scale monthly capacity settings (leaves/meetings) to the period
+        period_days = (p['end'] - p['start']).days + 1
+        month_factor = period_days / 30.44 
+
         for designation, count in workforce_counts.items():
             settings = capacity_settings[designation]
-            month_key = month.strftime('%Y-%m')
-            gross_hours = count * working_days_in_month * general_settings.working_hours_per_day
-            non_project_hours = count * (settings.monthly_meeting_hours + settings.monthly_leave_hours)
+            gross_hours = count * working_days * general_settings.working_hours_per_day
+            non_project_hours = count * (settings.monthly_meeting_hours + settings.monthly_leave_hours) * month_factor
             efficiency_loss = (gross_hours - non_project_hours) * (settings.efficiency_loss_factor / 100)
-            supply_data[designation][month_key] = {'available_hours': gross_hours - non_project_hours - efficiency_loss, 'headcount': count}
+            
+            supply_data[designation][p['key']] = {
+                'available_hours': gross_hours - non_project_hours - efficiency_loss, 
+                'headcount': count
+            }
 
+    # 3. Calculate Demand & Segment Breakdowns
     demand_hours = defaultdict(lambda: defaultdict(float))
-    
-    # NEW: Dictionaries for segment breakdowns
     live_workload_by_segment = defaultdict(lambda: defaultdict(float))
     forecasted_workload_by_segment = defaultdict(lambda: defaultdict(float))
     
-    # Note: Demand is based on ACTIVITIES. Even if assigned to inactive user, work remains.
-    # MODIFIED: Added project__segment to select_related
-    for activity in Activity.objects.select_related('assignee', 'project__segment').filter(assignee__isnull=False, start_date__isnull=False, end_date__isnull=False):
+    # Calculate Live Demand
+    for activity in Activity.objects.select_related('assignee', 'project__segment').filter(
+        assignee__isnull=False, start_date__isnull=False, end_date__isnull=False
+    ):
         daily_hours = general_settings.working_hours_per_day
         current_date = activity.start_date
         while current_date <= activity.end_date:
             if current_date.weekday() < 5 and current_date not in holidays:
-                m_key = current_date.strftime('%Y-%m')
-                demand_hours[activity.assignee.designation][m_key] += daily_hours
-                
-                # NEW: Track per segment
-                if activity.project.segment:
-                    live_workload_by_segment[activity.project.segment.name][m_key] += daily_hours
+                # Use date_to_key mapping
+                if current_date in date_to_key:
+                    m_key = date_to_key[current_date]
+                    demand_hours[activity.assignee.designation][m_key] += daily_hours
+                    
+                    if activity.project.segment:
+                        live_workload_by_segment[activity.project.segment.name][m_key] += daily_hours
             current_date += timedelta(days=1)
 
+    # Calculate Forecast Demand
     project_types_with_brackets = ProjectType.objects.prefetch_related('effort_brackets')
     pt_bracket_map = {pt.id: list(pt.effort_brackets.all()) for pt in project_types_with_brackets}
     pt_map = {(pt.segment.name, pt.category.name): pt.id for pt in ProjectType.objects.select_related('segment', 'category')}
@@ -534,43 +549,40 @@ def capacity_plan_view(request):
         daily_tl_hours = general_settings.working_hours_per_day * (p_type.team_lead_involvement / 100) * daily_effort_factor
         daily_mgr_hours = general_settings.working_hours_per_day * (p_type.manager_involvement / 100) * daily_effort_factor
         
-        # Calculate total daily hours for this forecast
         total_daily_hours = daily_eng_hours + daily_tl_hours + daily_mgr_hours
         
         current_date = forecast.start_date
         while current_date <= forecast.end_date:
             if current_date.weekday() < 5 and current_date not in holidays:
-                month_key = current_date.strftime('%Y-%m')
-                demand_hours['ENGINEER'][month_key] += daily_eng_hours
-                demand_hours['TEAM_LEAD'][month_key] += daily_tl_hours
-                demand_hours['MANAGER'][month_key] += daily_mgr_hours
-                
-                # NEW: Track per segment
-                if forecast.segment:
-                    forecasted_workload_by_segment[forecast.segment][month_key] += total_daily_hours
+                if current_date in date_to_key:
+                    month_key = date_to_key[current_date]
+                    demand_hours['ENGINEER'][month_key] += daily_eng_hours
+                    demand_hours['TEAM_LEAD'][month_key] += daily_tl_hours
+                    demand_hours['MANAGER'][month_key] += daily_mgr_hours
+                    
+                    if forecast.segment:
+                        forecasted_workload_by_segment[forecast.segment][month_key] += total_daily_hours
             current_date += timedelta(days=1)
     
-    # --- Prepare Global Chart Data ---
-    live_workload_by_month = defaultdict(float)
-    forecasted_workload_by_month = defaultdict(float)
+    # 4. Prepare Global Chart Data (Aggregated from segment/activities logic for period keys)
+    # We re-calculate global totals by iterating periods to sum up segment data? 
+    # No, that misses activities without segments. Better to iterate periods and sum the live/forecast dicts we populated.
+    # Note: live_workload_by_segment only has segmented data. We need global totals.
+    # Let's do a quick global pass or just sum demand_hours for all roles?
+    # demand_hours is by role. Summing all roles gives total required.
+    # But we want split of Live vs Forecast.
     
-    # Re-calculate totals from the main logic or just sum up (easier to just reuse existing logic for global)
-    # Actually, let's reuse the variables we already populated in the new logic above to avoid looping twice
-    # But since the above loops were mainly for 'demand_hours' breakdown, let's stick to the previous pattern
-    # for clarity, but optimized to not re-loop everything. 
+    global_live_workload = defaultdict(float)
+    global_forecast_workload = defaultdict(float)
     
-    # Wait, I already added logic to populate `live_workload_by_segment`. 
-    # I can derive global totals from segment totals? No, because some activities might not have a segment.
-    # So I need to keep the global calculation.
-    
-    for activity in Activity.objects.select_related('assignee').filter(
-        assignee__isnull=False, start_date__isnull=False, end_date__isnull=False
-    ):
+    # Re-loop to fill global totals using the same logic (cleaner than trying to merge dicts)
+    for activity in Activity.objects.filter(assignee__isnull=False, start_date__isnull=False, end_date__isnull=False):
         current_date = activity.start_date
         while current_date <= activity.end_date:
             if current_date.weekday() < 5 and current_date not in holidays:
-                month_key = current_date.strftime('%Y-%m')
-                live_workload_by_month[month_key] += general_settings.working_hours_per_day
+                if current_date in date_to_key:
+                    m_key = date_to_key[current_date]
+                    global_live_workload[m_key] += general_settings.working_hours_per_day
             current_date += timedelta(days=1)
             
     for forecast in SalesForecast.objects.filter(start_date__isnull=False, end_date__isnull=False):
@@ -584,61 +596,58 @@ def capacity_plan_view(request):
         daily_effort_factor = calculated_effort_days / total_window_days
         p_type = project_type_map.get(pt_id)
         if not p_type: continue
+        
         total_daily_hours = general_settings.working_hours_per_day * daily_effort_factor * (
             (p_type.engineer_involvement + p_type.team_lead_involvement + p_type.manager_involvement) / 100
         )
         current_date = forecast.start_date
         while current_date <= forecast.end_date:
             if current_date.weekday() < 5 and current_date not in holidays:
-                month_key = current_date.strftime('%Y-%m')
-                forecasted_workload_by_month[month_key] += total_daily_hours
+                if current_date in date_to_key:
+                    m_key = date_to_key[current_date]
+                    global_forecast_workload[m_key] += total_daily_hours
             current_date += timedelta(days=1)
 
     chart_data = []
-    for month in months:
-        month_key = month.strftime('%Y-%m')
-        month_label = month.strftime('%b %Y')
-        
-        live_hours = live_workload_by_month.get(month_key, 0)
-        forecast_hours = forecasted_workload_by_month.get(month_key, 0)
-        
+    for p in periods:
+        live = global_live_workload.get(p['key'], 0)
+        forecast = global_forecast_workload.get(p['key'], 0)
         chart_data.append({
-            'month': month_label,
-            'live_workload': round(live_hours, 1),
-            'forecasted_workload': round(forecast_hours, 1),
-            'total': round(live_hours + forecast_hours, 1)
+            'month': p['label'], # Used as label in chart
+            'live_workload': round(live, 1),
+            'forecasted_workload': round(forecast, 1),
+            'total': round(live + forecast, 1)
         })
     
-    # NEW: Prepare Segment Chart Data
+    # 5. Prepare Segment Chart Data
     segment_charts = []
     all_segments = Segment.objects.all().order_by('name')
     for segment in all_segments:
         seg_data = {'name': segment.name, 'data': []}
-        for month in months:
-            m_key = month.strftime('%Y-%m')
-            m_label = month.strftime('%b %Y')
-            live = live_workload_by_segment[segment.name].get(m_key, 0)
-            forecast = forecasted_workload_by_segment[segment.name].get(m_key, 0)
+        for p in periods:
+            live = live_workload_by_segment[segment.name].get(p['key'], 0)
+            forecast = forecasted_workload_by_segment[segment.name].get(p['key'], 0)
             seg_data['data'].append({
-                'month': m_label,
+                'month': p['label'],
                 'live_workload': round(live, 1),
                 'forecasted_workload': round(forecast, 1),
                 'total': round(live + forecast, 1)
             })
         segment_charts.append(seg_data)
 
+    # 6. Prepare Report Data
     report = []
     for des_value, des_display in Employee.DESIGNATION_CHOICES:
         des_data = {'designation': des_display, 'months': []}
-        for month_key in month_keys:
-            supply = supply_data[des_value].get(month_key, {})
+        for p in periods:
+            supply = supply_data[des_value].get(p['key'], {})
             available_hours = supply.get('available_hours', 0)
             headcount = supply.get('headcount', 0)
-            required_hours = demand_hours[des_value].get(month_key, 0)
+            required_hours = demand_hours[des_value].get(p['key'], 0)
             hours_per_person = (available_hours / headcount) if headcount > 0 else 0
             required_headcount = (required_hours / hours_per_person) if hours_per_person > 0 else 0
             des_data['months'].append({
-                'month': month_key, 
+                'month': p['label'], 
                 'available_hours': available_hours, 
                 'required_hours': required_hours, 
                 'variance_hours': available_hours - required_hours, 
@@ -651,7 +660,8 @@ def capacity_plan_view(request):
         'active_nav': 'capacity_plan', 
         'report_data': report,
         'chart_data': chart_data,
-        'segment_charts': segment_charts # NEW
+        'segment_charts': segment_charts,
+        'view_type': view_type # Pass view type to template
     }
     return render(request, 'planner/capacity_plan.html', context)
 
