@@ -2,6 +2,7 @@
 
 from django.db import models
 from django.utils import timezone
+from datetime import timedelta
 from .utils import calculate_end_date
 
 class Segment(models.Model):
@@ -52,12 +53,30 @@ class Activity(models.Model):
     start_date = models.DateField(default=timezone.now)
     duration = models.PositiveIntegerField(default=1, help_text="Duration in working days")
     end_date = models.DateField(blank=True, null=True)
+    
     def __str__(self):
         return f"{self.project.project_id} - {self.activity_name}"
+        
     def save(self, *args, **kwargs):
+        # 1. Get Global Holidays
         holidays = list(Holiday.objects.values_list('date', flat=True))
-        self.end_date = calculate_end_date(self.start_date, self.duration, holidays)
+        
+        # 2. Get Assignee Leaves (if assigned)
+        assignee_leaves = []
+        if self.assignee:
+            # We only care about leaves that happen on or after the activity start
+            relevant_leaves = self.assignee.leaves.filter(end_date__gte=self.start_date)
+            for leave in relevant_leaves:
+                # Expand range to individual dates
+                curr = leave.start_date
+                while curr <= leave.end_date:
+                    assignee_leaves.append(curr)
+                    curr += timedelta(days=1)
+        
+        # 3. Calculate End Date considering both
+        self.end_date = calculate_end_date(self.start_date, self.duration, holidays, assignee_leaves)
         super().save(*args, **kwargs)
+        
     class Meta:
         ordering = ['start_date']
 
@@ -74,7 +93,6 @@ class Employee(models.Model):
     def __str__(self): return self.name
     class Meta: ordering = ['name']
 
-# --- NEW MODEL: Leave ---
 class Leave(models.Model):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='leaves')
     start_date = models.DateField()
