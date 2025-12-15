@@ -139,10 +139,8 @@ def project_list_view(request):
             form.save()
             return redirect('project_list')
     
-    # Use select_related/prefetch_related to optimize query
     projects = Project.objects.select_related('segment', 'team_lead').prefetch_related('activities').all()
     
-    # Get unique segments and team leads for the filters
     segments = Segment.objects.filter(project__in=projects).distinct().order_by('name')
     team_leads = Employee.objects.filter(led_projects__in=projects).distinct().order_by('name')
 
@@ -173,8 +171,14 @@ def consolidated_planner_view(request):
             query_string = urlencode({'group_by': grouping_method})
             return redirect(f"{reverse('consolidated_planner')}?{query_string}")
 
-    all_activities_qs = Activity.objects.select_related('project', 'project_type__category', 'assignee').all()
+    # Prefetch relevant data for filtering
+    all_activities_qs = Activity.objects.select_related('project__segment', 'project__team_lead', 'project_type__category', 'assignee').all()
     context = _prepare_gantt_context(all_activities_qs)
+
+    # Get filter data from all projects (to be consistent with project list)
+    all_projects = Project.objects.all()
+    segments = Segment.objects.filter(project__in=all_projects).distinct().order_by('name')
+    team_leads = Employee.objects.filter(led_projects__in=all_projects).distinct().order_by('name')
 
     display_data = defaultdict(list)
     if grouping_method == 'engineer':
@@ -182,7 +186,7 @@ def consolidated_planner_view(request):
         for act in sorted_activities:
             display_data[act.assignee.name if act.assignee else "Unassigned"].append(act)
     elif grouping_method == 'none':
-        # Ungrouped mode: place all activities under a single key
+        # Ungrouped mode
         sorted_activities = sorted(context['activities'], key=lambda a: a.start_date)
         display_data['All Activities'] = sorted_activities
     else: 
@@ -213,7 +217,9 @@ def consolidated_planner_view(request):
         'active_nav': 'projects',
         'display_data': dict(display_data),
         'grouping_method': grouping_method,
-        'gantt_init_data': gantt_init_data 
+        'gantt_init_data': gantt_init_data,
+        'segments': segments,
+        'team_leads': team_leads
     })
     return render(request, 'planner/activity_planner.html', context)
 
