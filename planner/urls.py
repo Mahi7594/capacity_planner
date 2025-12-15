@@ -10,6 +10,7 @@ urlpatterns = [
     path('workforce/', views.workforce_view, name='workforce'),
     path('configuration/', views.configuration_view, name='configuration'),
     path('employee/<int:pk>/delete/', views.delete_employee_view, name='delete_employee'),
+    path('leave/<int:pk>/delete/', views.delete_leave_view, name='delete_leave'), # New URL
     path('project/<int:pk>/delete/', views.delete_project_view, name='delete_project'),
     path('activity/<int:pk>/edit/', views.edit_activity_view, name='edit_activity'),
     path('activity/<int:pk>/delete/', views.delete_activity_view, name='delete_activity'),

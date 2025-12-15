@@ -3,16 +3,16 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import (Employee, ProjectType, Segment, Category, Holiday, 
                      Project, Activity, GeneralSettings, CapacitySettings, 
-                     SalesForecast, EffortBracket)
+                     SalesForecast, EffortBracket, Leave)
 from datetime import date, timedelta, datetime
 from collections import OrderedDict, defaultdict
 from django.db.models import Min, Max
-from .forms import ActivityForm, ProjectForm
+from .forms import ActivityForm, ProjectForm, LeaveForm
 from django.urls import reverse
 from urllib.parse import urlencode
 from django.http import JsonResponse
 import json
-from .utils import calculate_end_date, count_working_days, calculate_effort_from_value
+from .utils import calculate_end_date, count_working_days, calculate_effort_from_value, calculate_overlap_working_days
 import calendar
 from django.views.decorators.http import require_POST
 
@@ -274,6 +274,7 @@ def activity_planner_view(request, project_pk):
     return render(request, 'planner/activity_planner.html', context)
 
 def _get_workforce_context():
+    today = date.today()
     return {
         'workforce_counts': {
             'engineers': Employee.objects.filter(designation='ENGINEER', is_active=True).count(),
@@ -282,6 +283,7 @@ def _get_workforce_context():
         },
         'all_employees': Employee.objects.all(),
         'designation_choices': Employee.DESIGNATION_CHOICES,
+        'all_leaves': Leave.objects.filter(end_date__gte=today).select_related('employee').order_by('start_date'),
         'active_nav': 'workforce',
     }
 
@@ -289,24 +291,43 @@ def workforce_view(request):
     error_message = None
     entered_data = {}
     
-    if request.method == 'POST' and 'add_employee' in request.POST:
-        name = request.POST.get('name')
-        designation = request.POST.get('designation')
-        is_active_val = request.POST.get('is_active')
-        is_active = True if is_active_val == 'True' else False
-        
-        if name and designation:
-            if Employee.objects.filter(name__iexact=name).exists():
-                error_message = f"Team member with name '{name}' already exists."
-                entered_data = {'name': name, 'designation': designation, 'is_active': is_active_val}
-            else:
-                Employee.objects.create(name=name, designation=designation, is_active=is_active)
-                return redirect('workforce')
+    # Determine which tab should be active. Default is 'employees'.
+    # If ?tab=leaves is in the URL, that takes precedence.
+    active_tab = request.GET.get('tab', 'employees')
     
+    if request.method == 'POST':
+        if 'add_employee' in request.POST:
+            name = request.POST.get('name')
+            designation = request.POST.get('designation')
+            is_active_val = request.POST.get('is_active')
+            is_active = True if is_active_val == 'True' else False
+            
+            if name and designation:
+                if Employee.objects.filter(name__iexact=name).exists():
+                    error_message = f"Team member with name '{name}' already exists."
+                    entered_data = {'name': name, 'designation': designation, 'is_active': is_active_val}
+                    active_tab = 'employees' # Stay on employees tab on error
+                else:
+                    Employee.objects.create(name=name, designation=designation, is_active=is_active)
+                    # Redirect to employees tab (default)
+                    return redirect('workforce')
+        
+        elif 'add_leave' in request.POST:
+            leave_form = LeaveForm(request.POST)
+            if leave_form.is_valid():
+                leave_form.save()
+                # Redirect specifically to the leaves tab
+                return redirect(f"{reverse('workforce')}?tab=leaves")
+            else:
+                error_message = "Error adding leave. Please check dates."
+                active_tab = 'leaves' # Stay on leaves tab on error
+
     context = _get_workforce_context()
     context.update({
         'error_message': error_message,
         'entered_data': entered_data,
+        'leave_form': LeaveForm(),
+        'active_tab': active_tab, # Pass the active tab to the template
     })
     return render(request, 'planner/workforce.html', context)
 
@@ -380,6 +401,11 @@ def delete_project_view(request, pk):
 def delete_employee_view(request, pk):
     get_object_or_404(Employee, pk=pk).delete()
     return redirect('workforce')
+
+def delete_leave_view(request, pk):
+    get_object_or_404(Leave, pk=pk).delete()
+    # Redirect specifically to the leaves tab
+    return redirect(f"{reverse('workforce')}?tab=leaves")
 
 def delete_holiday_view(request, pk):
     get_object_or_404(Holiday, pk=pk).delete()
@@ -515,6 +541,13 @@ def capacity_plan_view(request):
                     break
             curr += timedelta(days=1)
 
+    # NEW: Fetch All Relevant Leaves
+    all_leaves = Leave.objects.select_related('employee').filter(end_date__gte=min_date, start_date__lte=max_date)
+    # Organize leaves by designation
+    leaves_by_designation = defaultdict(list)
+    for leave in all_leaves:
+        leaves_by_designation[leave.employee.designation].append(leave)
+
     # 2. Calculate Supply
     supply_data = defaultdict(dict)
     for p in periods:
@@ -525,16 +558,33 @@ def capacity_plan_view(request):
 
         for designation, count in workforce_counts.items():
             settings = capacity_settings[designation]
-            gross_hours = count * working_days * general_settings.working_hours_per_day
+            
+            # Calculate Specific Leave Days in this period for this designation
+            total_leave_man_days = 0
+            for leave in leaves_by_designation[designation]:
+                total_leave_man_days += calculate_overlap_working_days(
+                    leave.start_date, leave.end_date, 
+                    p['start'], p['end'], holidays
+                )
+            
+            # Gross Hours = (Total Potential Man Days - Actual Leave Man Days) * Hours/Day
+            gross_hours = ((count * working_days) - total_leave_man_days) * general_settings.working_hours_per_day
+            
+            # Non-project hours (Meetings) - Removed general leave settings to avoid double counting if using specific leaves
+            # However, we might want to keep generic leaves for unplanned sickness? 
+            # For now, let's assume 'monthly_leave_hours' in settings acts as a buffer for UNPLANNED leaves
             non_project_hours = count * (settings.monthly_meeting_hours + settings.monthly_leave_hours) * month_factor
+            
             efficiency_loss = (gross_hours - non_project_hours) * (settings.efficiency_loss_factor / 100)
             
+            net_hours = gross_hours - non_project_hours - efficiency_loss
+            
             supply_data[designation][p['key']] = {
-                'available_hours': gross_hours - non_project_hours - efficiency_loss, 
+                'available_hours': net_hours, 
                 'headcount': count
             }
 
-    # 3. Calculate Demand & Segment Breakdowns
+    # 3. Calculate Demand & Segment Breakdowns (unchanged logic)
     demand_hours = defaultdict(lambda: defaultdict(float))
     live_workload_by_segment = defaultdict(lambda: defaultdict(float))
     forecasted_workload_by_segment = defaultdict(lambda: defaultdict(float))
@@ -596,18 +646,9 @@ def capacity_plan_view(request):
                         forecasted_workload_by_segment[forecast.segment][month_key] += total_daily_hours
             current_date += timedelta(days=1)
     
-    # 4. Prepare Global Chart Data (Aggregated from segment/activities logic for period keys)
-    # We re-calculate global totals by iterating periods to sum up segment data? 
-    # No, that misses activities without segments. Better to iterate periods and sum the live/forecast dicts we populated.
-    # Note: live_workload_by_segment only has segmented data. We need global totals.
-    # Let's do a quick global pass or just sum demand_hours for all roles?
-    # demand_hours is by role. Summing all roles gives total required.
-    # But we want split of Live vs Forecast.
-    
     global_live_workload = defaultdict(float)
     global_forecast_workload = defaultdict(float)
     
-    # Re-loop to fill global totals using the same logic (cleaner than trying to merge dicts)
     for activity in Activity.objects.filter(assignee__isnull=False, start_date__isnull=False, end_date__isnull=False):
         current_date = activity.start_date
         while current_date <= activity.end_date:
@@ -645,13 +686,12 @@ def capacity_plan_view(request):
         live = global_live_workload.get(p['key'], 0)
         forecast = global_forecast_workload.get(p['key'], 0)
         chart_data.append({
-            'month': p['label'], # Used as label in chart
+            'month': p['label'], 
             'live_workload': round(live, 1),
             'forecasted_workload': round(forecast, 1),
             'total': round(live + forecast, 1)
         })
     
-    # 5. Prepare Segment Chart Data
     segment_charts = []
     all_segments = Segment.objects.all().order_by('name')
     for segment in all_segments:
@@ -667,7 +707,6 @@ def capacity_plan_view(request):
             })
         segment_charts.append(seg_data)
 
-    # 6. Prepare Report Data
     report = []
     for des_value, des_display in Employee.DESIGNATION_CHOICES:
         des_data = {'designation': des_display, 'months': []}
@@ -693,7 +732,7 @@ def capacity_plan_view(request):
         'report_data': report,
         'chart_data': chart_data,
         'segment_charts': segment_charts,
-        'view_type': view_type # Pass view type to template
+        'view_type': view_type
     }
     return render(request, 'planner/capacity_plan.html', context)
 
