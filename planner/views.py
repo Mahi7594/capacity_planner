@@ -361,8 +361,10 @@ def toggle_employee_status_view(request, pk):
 
 def configuration_view(request):
     if request.method == 'POST':
+        # Modified Redirects to include anchor hashes for better UX
         if 'add_holiday' in request.POST:
             Holiday.objects.get_or_create(date=request.POST.get('holiday_date'), defaults={'description': request.POST.get('description')})
+            return redirect(f"{reverse('configuration')}#holidays")
         elif 'add_project_type' in request.POST:
             segment = get_object_or_404(Segment, pk=request.POST.get('segment'))
             category = get_object_or_404(Category, pk=request.POST.get('category'))
@@ -371,10 +373,12 @@ def configuration_view(request):
                 'team_lead_involvement': request.POST.get('team_lead_involvement'),
                 'manager_involvement': request.POST.get('manager_involvement')
             })
+            return redirect(f"{reverse('configuration')}#project-types")
         elif 'update_general_settings' in request.POST:
             general_settings, _ = GeneralSettings.objects.get_or_create(pk=1)
             general_settings.working_hours_per_day = request.POST.get('working_hours_per_day', 8.0)
             general_settings.save()
+            return redirect(f"{reverse('configuration')}#general-settings")
         elif 'update_capacity_settings' in request.POST:
             for choice, _ in Employee.DESIGNATION_CHOICES:
                 setting, _ = CapacitySettings.objects.get_or_create(designation=choice)
@@ -382,6 +386,7 @@ def configuration_view(request):
                 setting.monthly_leave_hours = request.POST.get(f'leave_hours_{choice}', 0)
                 setting.efficiency_loss_factor = request.POST.get(f'efficiency_{choice}', 0)
                 setting.save()
+            return redirect(f"{reverse('configuration')}#capacity-settings")
         return redirect('configuration')
 
     context = {
@@ -409,7 +414,8 @@ def delete_leave_view(request, pk):
 
 def delete_holiday_view(request, pk):
     get_object_or_404(Holiday, pk=pk).delete()
-    return redirect('configuration')
+    # Return to the holidays section
+    return redirect(f"{reverse('configuration')}#holidays")
 
 def edit_activity_view(request, pk):
     activity = get_object_or_404(Activity, pk=pk)
@@ -466,7 +472,8 @@ def edit_project_type_view(request, pk):
 
 def delete_project_type_view(request, pk):
     get_object_or_404(ProjectType, pk=pk).delete()
-    return redirect('configuration')
+    # Return to the project types section
+    return redirect(f"{reverse('configuration')}#project-types")
 
 def capacity_plan_view(request):
     view_type = request.GET.get('view_type', 'month')

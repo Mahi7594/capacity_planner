@@ -12,7 +12,8 @@
     .group-icon { transition: transform 0.2s ease; }
     .group-header.collapsed .group-icon { transform: rotate(-90deg); }
     .project-row:hover .sticky-cell { background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%); }
-    /* COMPACT: Reduced height for activity bars to fit h-10 rows */
+    
+    /* COMPACT: Reduced height for activity bars */
     .gantt-bar { border-radius: 4px; transition: all 0.2s ease; position: relative; height: 1.25rem; top: 2px; }
     .gantt-bar:hover { transform: scaleY(1.2); z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
     .activity-bar { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
@@ -20,30 +21,34 @@
     
     /* Summary Bar Styling */
     .project-timeline-bar { 
-        background: #bfdbfe;  /* Light blue color */
+        background: #bfdbfe;
         opacity: 0.9;
-        /* COMPACT: Reduced height for summary bars */
-        height: 0.75rem; /* h-3 */
-        border-radius: 0;     /* Square corners for middle parts */
+        height: 0.75rem; 
+        border-radius: 0;
     }
-    /* Class for the start of the summary bar */
-    .summary-bar-start {
-        border-left: 3px solid #3b82f6; /* Strong blue left border */
-        border-radius: 4px 0 0 4px;      /* Rounded outer left corner */
-    }
-    /* Class for the end of the summary bar */
-    .summary-bar-end {
-        border-right: 3px solid #3b82f6; /* Strong blue right border */
-        border-radius: 0 4px 4px 0;       /* Rounded outer right corner */
-    }
+    .summary-bar-start { border-left: 3px solid #3b82f6; border-radius: 4px 0 0 4px; }
+    .summary-bar-end { border-right: 3px solid #3b82f6; border-radius: 0 4px 4px 0; }
 
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
     .weekend-cell { background-color: #f8fafc; }
     .holiday-cell { background-color: #fef9c3; }
     .today-cell { border-left: 2px solid #ef4444 !important; border-right: 2px solid #ef4444 !important; background-color: #fee2e2; }
+    
+    /* ACTION BUTTON STYLES */
     .action-btn { background: transparent; transition: all 0.2s ease; }
     .action-btn:hover { color: #4f46e5; transform: scale(1.1); }
-    .action-menu { background: white; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+    
+    /* Base style for menu - positioning handled by JS */
+    .action-menu { 
+        background: white; 
+        border: 1px solid #e5e7eb; 
+        border-radius: 8px; 
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2); 
+        min-width: 10rem;
+        z-index: 99999 !important; /* Force top layer */
+        padding: 0.25rem 0;
+    }
+    
     .filter-input { border: 1px solid #e5e7eb; border-radius: 4px; transition: all 0.2s ease; padding: 0.15rem 0.25rem; font-size: 0.7rem; }
     .filter-input:focus { border-color: #4f46e5; outline: none; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1); }
     
@@ -65,12 +70,12 @@
     .sticky-cell { position: -webkit-sticky; position: sticky; background-color: white; z-index: 20; }
     thead .sticky-cell { z-index: 30; }
 
+    /* Active Row Highlighting */
     tr.row-is-active .sticky-cell {
-        background-color: #e0e7ff !important; /* light indigo highlight on click */
+        background-color: #e0e7ff !important;
         border-bottom: 1px solid #818cf8;
     }
 
-    /* COMPACT: Adjusted column widths */
     .col-project    { width: 100px; min-width: 100px; left: 0px; }
     .col-activity   { width: 180px; min-width: 180px; left: 100px; }
     .col-assignee   { width: 60px; min-width: 60px; left: 280px; text-align: center; }
@@ -78,7 +83,6 @@
     .col-end        { width: 60px;  min-width: 60px;  left: 400px; }
     .col-actions    { width: 40px;  min-width: 40px;  left: 460px; }
 
-    /* COMPACT: Adjusted left positions when 'Project' column is not shown */
     .no-project-col .col-activity { width: 200px; min-width: 200px; left: 0px; } 
     .no-project-col .col-assignee { left: 200px; }
     .no-project-col .col-start    { left: 260px; }
@@ -87,7 +91,6 @@
 
     .group-header .sticky-cell { background-color: #f8fafc; }
 
-    /* Other styles (Modal, Buttons, etc.) */
     .icon { width: 1.25rem; height: 1.25rem; }
     .large-icon { width: 2rem; height: 2rem; }
     .grouping-tab { transition: all 0.2s ease; }
@@ -95,11 +98,7 @@
     .grouping-tab:not(.active) { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); color: #6b7280; border: 2px solid #e2e8f0; }
     .grouping-tab:not(.active):hover { background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%); color: #374151; transform: translateY(-1px); }
 
-    /* Filter Dropdown Styles */
-    .filter-dropdown-menu {
-        max-height: 250px;
-        overflow-y: auto;
-    }
+    .filter-dropdown-menu { max-height: 250px; overflow-y: auto; }
 </style>
 
 <header class="header-gradient shadow-xl">
@@ -402,7 +401,6 @@
 </div>
 
 <script>
-// Toggle function for filter menus
 function toggleFilterMenu(menuId) {
     const menu = document.getElementById(menuId);
     const isHidden = menu.classList.contains('hidden');
@@ -433,67 +431,114 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Action Dropdown Logic ---
+    // --- Action Dropdown Logic (PORTAL METHOD) & Row Auto-Scroll ---
     let currentlyOpenMenu = null;
+    let originalParent = null; // Store original parent to return element on close
     let currentlyActiveRow = null;
     const tableContainer = document.querySelector('.table-container');
 
     // NEW: Auto-scroll to Gantt bar on row click
     document.querySelector('tbody').addEventListener('click', (e) => {
-        // Find the closest activity row
         const row = e.target.closest('.gantt-activity-row');
         if (!row) return;
 
         // Do not trigger if clicking an action button, link, or dropdown
         if (e.target.closest('.action-btn') || e.target.closest('a') || e.target.closest('.action-menu')) return;
         
-        // Remove active class from previous row
         if (currentlyActiveRow) currentlyActiveRow.classList.remove('row-is-active');
-        
-        // Add active highlight to current row
         row.classList.add('row-is-active');
         currentlyActiveRow = row;
 
-        // Find the first gantt bar in this row
         const bar = row.querySelector('.gantt-bar');
-        
         if (bar) {
-            // Scroll the table container to center the bar horizontally
             bar.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
         }
     });
 
+    // 1. Handle Click on Action Button
     tableContainer.addEventListener('click', (e) => {
         const actionBtn = e.target.closest('.action-btn');
         if (actionBtn) {
             e.stopPropagation();
-            const parentRow = actionBtn.closest('tr');
+            
+            // This is the menu inside the sticky cell
             const menu = actionBtn.parentElement.querySelector('.action-menu');
 
-            if (currentlyOpenMenu && currentlyOpenMenu !== menu) {
-                currentlyOpenMenu.classList.add('hidden');
-            }
-
-            const isOpening = menu.classList.toggle('hidden');
-            
-            if (isOpening) {
-                currentlyOpenMenu = menu;
-            } else {
-                currentlyOpenMenu = null;
+            // If we are clicking the same button that opened the current menu, toggle it
+            if (currentlyOpenMenu && currentlyOpenMenu === menu) {
+                closeCurrentMenu();
+            } 
+            // If we clicked a different button, close existing and open new
+            else {
+                if (currentlyOpenMenu) closeCurrentMenu();
+                
+                // If menu is still in original location (it should be if closed), open it
+                if (menu) {
+                    openMenuPortal(actionBtn, menu);
+                }
             }
         }
     });
 
-    window.addEventListener('click', (e) => {
-        if (currentlyOpenMenu && !e.target.closest('.action-dropdown')) {
-            currentlyOpenMenu.classList.add('hidden');
-            currentlyOpenMenu = null;
+    // 2. Open Menu via Portal (Move to Body)
+    function openMenuPortal(btn, menu) {
+        // Store reference to put it back later
+        originalParent = menu.parentElement;
+        currentlyOpenMenu = menu;
+
+        // Move to body to break all stacking contexts
+        document.body.appendChild(menu);
+        menu.classList.remove('hidden');
+        
+        // Calculate Position
+        const btnRect = btn.getBoundingClientRect();
+        const menuWidth = 160; // Approx width for w-40/min-w-10rem
+        
+        // Position: Fixed
+        menu.style.position = 'fixed';
+        menu.style.top = `${btnRect.bottom + 2}px`;
+        // Align right edge of menu with right edge of button
+        menu.style.left = `${btnRect.right - menuWidth}px`;
+        
+        // Add listeners to close
+        document.addEventListener('scroll', closeCurrentMenu, true);
+        window.addEventListener('resize', closeCurrentMenu);
+        document.addEventListener('click', closeCurrentMenuOutside);
+    }
+
+    // 3. Close Menu Helper
+    function closeCurrentMenu() {
+        if (!currentlyOpenMenu) return;
+        
+        const menu = currentlyOpenMenu;
+        menu.classList.add('hidden');
+        
+        // Clean up inline styles
+        menu.style.position = ''; 
+        menu.style.top = '';
+        menu.style.left = '';
+        
+        // Move back to original parent
+        if (originalParent) {
+            originalParent.appendChild(menu);
         }
         
-        if (!e.target.closest('[id$="FilterDropdown"]')) {
-            document.querySelectorAll('.filter-dropdown-menu').forEach(m => m.classList.add('hidden'));
-        }
-    });
+        currentlyOpenMenu = null;
+        originalParent = null;
+        
+        document.removeEventListener('scroll', closeCurrentMenu, true);
+        window.removeEventListener('resize', closeCurrentMenu);
+        document.removeEventListener('click', closeCurrentMenuOutside);
+    }
+
+    function closeCurrentMenuOutside(e) {
+        // If clicking inside the menu, do nothing (let links work)
+        if (currentlyOpenMenu && currentlyOpenMenu.contains(e.target)) return;
+        // If clicking the button that opened it, handle in main listener
+        if (e.target.closest('.action-btn')) return;
+        
+        closeCurrentMenu();
+    }
 
     // --- Filter Logic --- (Existing Logic Preserved)
     const filterInputs = document.querySelectorAll('.filter-input');
@@ -570,7 +615,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isVisible) {
                 for (const column in colFilters) {
                     const cell = row.querySelector(`[data-filter-column="${column}"]`);
-                    // Use textContent to ensure hidden search spans are included
                     if (!cell || !cell.textContent.toLowerCase().includes(colFilters[column])) {
                         isVisible = false;
                         break;
