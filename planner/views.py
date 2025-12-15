@@ -173,7 +173,12 @@ def consolidated_planner_view(request):
         sorted_activities = sorted(context['activities'], key=lambda a: (a.assignee.name if a.assignee else "Unassigned", a.start_date))
         for act in sorted_activities:
             display_data[act.assignee.name if act.assignee else "Unassigned"].append(act)
+    elif grouping_method == 'none':
+        # Ungrouped mode: place all activities under a single key
+        sorted_activities = sorted(context['activities'], key=lambda a: a.start_date)
+        display_data['All Activities'] = sorted_activities
     else: 
+        # Default fallback to 'project'
         grouping_method = 'project'
         activities_by_project = defaultdict(list)
         for act in context['activities']:

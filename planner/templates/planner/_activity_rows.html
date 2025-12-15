@@ -1,12 +1,18 @@
 {% load planner_extras %}
 
 {% for activity in activities %}
-<tr class="h-14 project-row gantt-activity-row {% if group_name %}hidden{% endif %}" 
+{% comment %} 
+    The 'hidden' class is only applied when grouping is active (group_name is present) 
+    AND the view is not in 'none' (ungrouped) mode.
+    Note: The 'grouping_method' variable is passed from activity_planner.html.
+{% endcomment %}
+<tr class="h-14 project-row gantt-activity-row {% if group_name and grouping_method != 'none' %}hidden{% endif %}" 
     {% if group_name %}data-group-id="{{ group_name }}"{% endif %}
     data-activity-pk="{{ activity.pk }}">
     
     {% comment %} --- STICKY CELLS WITH DATA ATTRIBUTES FOR FILTERING --- {% endcomment %}
-    {% if not project and grouping_method == 'project' %}
+    {# MODIFIED: Show Project Code if not a single project view AND not grouped by engineer (allows for 'none' grouping) #}
+    {% if not project and grouping_method != 'engineer' %}
     <td class="sticky-cell col-project px-3 py-2 text-sm font-medium text-indigo-600 border-r" data-filter-column="project">{{ activity.project.project_id }}</td>
     {% endif %}
     <td class="sticky-cell col-activity px-3 py-2 text-sm text-gray-900 font-medium border-r" data-filter-column="activity">{{ activity.activity_name }}</td>
