@@ -6,29 +6,29 @@
     AND the view is not in 'none' (ungrouped) mode.
     Note: The 'grouping_method' variable is passed from activity_planner.html.
 {% endcomment %}
-<tr class="h-14 project-row gantt-activity-row {% if group_name and grouping_method != 'none' %}hidden{% endif %}" 
+<tr class="project-row gantt-activity-row {% if group_name and grouping_method != 'none' %}hidden{% endif %}" 
     {% if group_name %}data-group-id="{{ group_name }}"{% endif %}
     data-activity-pk="{{ activity.pk }}">
     
     {% comment %} --- STICKY CELLS WITH DATA ATTRIBUTES FOR FILTERING --- {% endcomment %}
     {# MODIFIED: Show Project Code if not a single project view AND not grouped by engineer (allows for 'none' grouping) #}
     {% if not project and grouping_method != 'engineer' %}
-    <td class="sticky-cell col-project px-3 py-2 text-sm font-medium text-indigo-600 border-r" data-filter-column="project">{{ activity.project.project_id }}</td>
+    <td class="sticky-cell col-project px-3 py-1 text-xs font-medium text-indigo-600 border-r" data-filter-column="project">{{ activity.project.project_id }}</td> {# COMPACT: Reduced padding and font #}
     {% endif %}
-    <td class="sticky-cell col-activity px-3 py-2 text-sm text-gray-900 font-medium border-r" data-filter-column="activity">{{ activity.activity_name }}</td>
-    <td class="sticky-cell col-assignee px-3 py-2 text-sm text-gray-600 border-r" data-filter-column="assignee">
+    <td class="sticky-cell col-activity px-3 py-1 text-xs text-gray-900 font-medium border-r" data-filter-column="activity">{{ activity.activity_name }}</td> {# COMPACT: Reduced padding and font #}
+    <td class="sticky-cell col-assignee px-3 py-1 text-xs text-gray-600 border-r" data-filter-column="assignee"> {# COMPACT: Reduced padding and font #}
         {% if activity.assignee %}
             <div class="flex items-center">
-                <div class="w-6 h-6 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold mr-2 flex-shrink-0">{{ activity.assignee.name|first|upper }}</div>
+                <div class="w-5 h-5 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white text-xxs font-bold mr-2 flex-shrink-0">{{ activity.assignee.name|first|upper }}</div> {# COMPACT: Reduced size and font #}
                 <span>{{ activity.assignee.name }}</span>
             </div>
         {% else %}<span class="text-gray-400">Unassigned</span>{% endif %}
     </td>
-    <td class="sticky-cell col-start px-3 py-2 text-sm text-gray-600 border-r" data-filter-column="start">{{ activity.start_date|date:"M d" }}</td>
-    <td class="sticky-cell col-end px-3 py-2 text-sm text-gray-600 border-r" data-filter-column="end">{{ activity.end_date|date:"M d" }}</td>
-    <td class="sticky-cell col-actions px-3 py-2 text-sm font-medium border-r">
+    <td class="sticky-cell col-start px-3 py-1 text-xs text-gray-600 border-r" data-filter-column="start">{{ activity.start_date|date:"M d" }}</td> {# COMPACT: Reduced padding and font #}
+    <td class="sticky-cell col-end px-3 py-1 text-xs text-gray-600 border-r" data-filter-column="end">{{ activity.end_date|date:"M d" }}</td> {# COMPACT: Reduced padding and font #}
+    <td class="sticky-cell col-actions px-3 py-1 text-xs font-medium border-r"> {# COMPACT: Reduced padding and font #}
         <div class="relative inline-block text-left action-dropdown">
-            <button type="button" class="action-btn inline-flex justify-center w-full px-3 py-1 text-sm font-medium text-gray-700 rounded-md"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button>
+            <button type="button" class="action-btn inline-flex justify-center w-full px-2 py-0.5 text-xs font-medium text-gray-700 rounded-md"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg></button> {# COMPACT: Reduced button size and icon size #}
             <div class="action-menu hidden origin-top-right absolute right-0 mt-2 w-48 rounded-md z-50">
                 <div class="py-1">
                     <a href="{% url 'edit_activity' activity.pk %}?next={{ request.path }}" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100 flex items-center"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>Edit Activity</a>

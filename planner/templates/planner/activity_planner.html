@@ -12,8 +12,9 @@
     .group-icon { transition: transform 0.2s ease; }
     .group-header.collapsed .group-icon { transform: rotate(-90deg); }
     .project-row:hover .sticky-cell { background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%); }
-    .gantt-bar { border-radius: 4px; transition: all 0.2s ease; position: relative; }
-    .gantt-bar:hover { transform: scaleY(1.1); z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+    /* COMPACT: Reduced height for activity bars */
+    .gantt-bar { border-radius: 4px; transition: all 0.2s ease; position: relative; height: 1rem; /* h-4 */ }
+    .gantt-bar:hover { transform: scaleY(1.5); z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
     .activity-bar { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
     .overlap-bar { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); animation: pulse 2s infinite; }
     
@@ -21,6 +22,8 @@
     .project-timeline-bar { 
         background: #bfdbfe;  /* Light blue color */
         opacity: 0.9;
+        /* COMPACT: Reduced height for summary bars */
+        height: 0.75rem; /* h-3 */
         border-radius: 0;     /* Square corners for middle parts */
     }
     /* Class for the start of the summary bar */
@@ -41,7 +44,7 @@
     .action-btn { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 2px solid #e2e8f0; transition: all 0.2s ease; }
     .action-btn:hover { background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%); border-color: #94a3b8; transform: translateY(-1px); }
     .action-menu { background: white; border: 2px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); }
-    .filter-input { border: 2px solid #e5e7eb; border-radius: 6px; transition: all 0.2s ease; }
+    .filter-input { border: 2px solid #e5e7eb; border-radius: 6px; transition: all 0.2s ease; padding: 0.25rem; /* COMPACT */ }
     .filter-input:focus { border-color: #4f46e5; outline: none; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
     
     .btn-success {
@@ -67,20 +70,26 @@
         position: relative;
     }
 
-    /* Define widths and left positions for each sticky column */
-    .col-project    { width: 150px; min-width: 150px; left: 0px; }
-    .col-activity   { width: 250px; min-width: 250px; left: 150px; }
-    .col-assignee   { width: 200px; min-width: 200px; left: 400px; }
-    .col-start      { width: 90px;  min-width: 90px;  left: 600px; }
-    .col-end        { width: 90px;  min-width: 90px;  left: 690px; }
-    .col-actions    { width: 80px;  min-width: 80px;  left: 780px; }
+    /* COMPACT: Adjusted column widths */
+    /* Original: { width: 150px; min-width: 150px; left: 0px; } */
+    .col-project    { width: 120px; min-width: 120px; left: 0px; }
+    /* Original: { width: 250px; min-width: 250px; left: 150px; } */
+    .col-activity   { width: 200px; min-width: 200px; left: 120px; }
+    /* Original: { width: 200px; min-width: 200px; left: 400px; } */
+    .col-assignee   { width: 150px; min-width: 150px; left: 320px; }
+    /* Original: { width: 90px;  min-width: 90px;  left: 600px; } */
+    .col-start      { width: 80px;  min-width: 80px;  left: 470px; }
+    /* Original: { width: 90px;  min-width: 90px;  left: 690px; } */
+    .col-end        { width: 80px;  min-width: 80px;  left: 550px; }
+    /* Original: { width: 80px;  min-width: 80px;  left: 780px; } */
+    .col-actions    { width: 60px;  min-width: 60px;  left: 630px; }
 
-    /* Adjust left positions when 'Project' column is not shown */
-    .no-project-col .col-activity { width: 350px; min-width: 350px; left: 0px; }
-    .no-project-col .col-assignee { left: 350px; }
-    .no-project-col .col-start    { left: 550px; }
-    .no-project-col .col-end      { left: 640px; }
-    .no-project-col .col-actions  { left: 730px; }
+    /* COMPACT: Adjusted left positions when 'Project' column is not shown */
+    .no-project-col .col-activity { width: 300px; min-width: 300px; left: 0px; } /* Combined from 250 + 150 - 100 padding */
+    .no-project-col .col-assignee { left: 300px; }
+    .no-project-col .col-start    { left: 450px; }
+    .no-project-col .col-end      { left: 530px; }
+    .no-project-col .col-actions  { left: 610px; }
 
     .group-header .sticky-cell { background-color: #f8fafc; }
 
@@ -162,30 +171,30 @@
 
             <table class="w-full table-auto border-collapse {% if project or grouping_method == 'engineer' %}no-project-col{% endif %}" style="min-width: 4000px;">
                 <thead class="bg-gray-50 sticky top-0 z-40">
-                    <tr class="h-8">
-                        <th colspan="{% if not project and grouping_method == 'project' %}6{% else %}5{% endif %}" class="sticky-cell col-project px-4 py-2 text-left text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
+                    <tr class="h-6"> {# COMPACT: Reduced height #}
+                        <th colspan="{% if not project and grouping_method != 'engineer' %}6{% else %}5{% endif %}" class="sticky-cell col-project px-3 py-1 text-left text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 text-white"> {# COMPACT: Reduced padding #}
                             <div class="flex items-center"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>ACTIVITIES BREAKDOWN</div>
                         </th>
-                        {% for month, day_count in gantt_data.months.items %}<th colspan="{{ day_count }}" class="px-2 py-1 text-center text-sm font-semibold border-l bg-gradient-to-r from-indigo-500 to-purple-600 text-white">{{ month }}</th>{% endfor %}
+                        {% for month, day_count in gantt_data.months.items %}<th colspan="{{ day_count }}" class="px-2 py-1 text-center text-xs font-semibold border-l bg-gradient-to-r from-indigo-500 to-purple-600 text-white">{{ month }}</th>{% endfor %} {# COMPACT: Reduced font and padding #}
                     </tr>
-                    <tr class="h-10">
+                    <tr class="h-8"> {# COMPACT: Reduced height #}
                         {# MODIFIED: Show Project column if not a single project view AND not grouped by engineer #}
-                        {% if not project and grouping_method != 'engineer' %}<th class="sticky-cell col-project px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Project</th>{% endif %}
-                        <th class="sticky-cell col-activity px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Activity</th>
-                        <th class="sticky-cell col-assignee px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Assignee</th>
-                        <th class="sticky-cell col-start px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Start</th>
-                        <th class="sticky-cell col-end px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">End</th>
-                        <th class="sticky-cell col-actions px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-                        {% for d in gantt_data.header_dates %}<th class="gantt-cell text-center text-xs font-medium text-gray-500 w-10 min-w-[40px] {% if d.weekday > 4 %}weekend-cell{% elif d in holidays_map %}holiday-cell{% endif %} {% if d == today %}today-cell{% endif %}" title="{% if d in holidays_map %}{{ holidays_map|get_item:d }}{% else %}{{ d|date:"l, F j, Y" }}{% endif %}"><div class="p-1">{{ d.day }}</div></th>{% endfor %}
+                        {% if not project and grouping_method != 'engineer' %}<th class="sticky-cell col-project px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Project</th>{% endif %} {# COMPACT: Reduced padding and font #}
+                        <th class="sticky-cell col-activity px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Activity</th> {# COMPACT: Reduced padding and font #}
+                        <th class="sticky-cell col-assignee px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Assignee</th> {# COMPACT: Reduced padding and font #}
+                        <th class="sticky-cell col-start px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Start</th> {# COMPACT: Reduced padding and font #}
+                        <th class="sticky-cell col-end px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">End</th> {# COMPACT: Reduced padding and font #}
+                        <th class="sticky-cell col-actions px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Actions</th> {# COMPACT: Reduced padding and font #}
+                        {% for d in gantt_data.header_dates %}<th class="gantt-cell text-center text-xs font-medium text-gray-500 w-8 min-w-[32px] {% if d.weekday > 4 %}weekend-cell{% elif d in holidays_map %}holiday-cell{% endif %} {% if d == today %}today-cell{% endif %}" title="{% if d in holidays_map %}{{ holidays_map|get_item:d }}{% else %}{{ d|date:"l, F j, Y" }}{% endif %}"><div class="p-0.5">{{ d.day }}</div></th>{% endfor %} {# COMPACT: Reduced min width and padding/font #}
                     </tr>
-                    <tr class="h-10">
+                    <tr class="h-8"> {# COMPACT: Reduced height #}
                         {# MODIFIED: Show Project filter column if not a single project view AND not grouped by engineer #}
-                        {% if not project and grouping_method != 'engineer' %}<th class="sticky-cell col-project p-1 bg-gray-100 border-r"><input type="text" data-filter-column="project" class="filter-input w-full text-sm p-1" placeholder="Filter..."></th>{% endif %}
-                        <th class="sticky-cell col-activity p-1 bg-gray-100 border-r"><input type="text" data-filter-column="activity" class="filter-input w-full text-sm p-1" placeholder="Filter..."></th>
-                        <th class="sticky-cell col-assignee p-1 bg-gray-100 border-r"><input type="text" data-filter-column="assignee" class="filter-input w-full text-sm p-1" placeholder="Filter..."></th>
-                        <th class="sticky-cell col-start p-1 bg-gray-100 border-r"><input type="text" data-filter-column="start" class="filter-input w-full text-sm p-1" placeholder="Filter..."></th>
-                        <th class="sticky-cell col-end p-1 bg-gray-100 border-r"><input type="text" data-filter-column="end" class="filter-input w-full text-sm p-1" placeholder="Filter..."></th>
-                        <th class="sticky-cell col-actions p-1 bg-gray-100 border-r"></th>
+                        {% if not project and grouping_method != 'engineer' %}<th class="sticky-cell col-project p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="project" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th>{% endif %} {# COMPACT: Reduced padding and font #}
+                        <th class="sticky-cell col-activity p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="activity" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th> {# COMPACT: Reduced padding and font #}
+                        <th class="sticky-cell col-assignee p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="assignee" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th> {# COMPACT: Reduced padding and font #}
+                        <th class="sticky-cell col-start p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="start" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th> {# COMPACT: Reduced padding and font #}
+                        <th class="sticky-cell col-end p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="end" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th> {# COMPACT: Reduced padding and font #}
+                        <th class="sticky-cell col-actions p-0.5 bg-gray-100 border-r"></th> {# COMPACT: Reduced padding #}
                         <th colspan="{{ gantt_data.header_dates|length }}" class="bg-gray-100"></th>
                     </tr>
                 </thead>
@@ -196,9 +205,9 @@
                         {% for group_name, activities_in_group in display_data.items %}
                             {% if grouping_method != 'none' %}
                             {% with group_data=group_gantt_data|get_item:group_name %}
-                            <tr class="group-header h-10 border-l-4 border-indigo-500" data-group-id="{{ group_name|slugify }}">
-                                <td colspan="{% if grouping_method == 'project' %}6{% else %}5{% endif %}" class="sticky-cell col-project px-4 font-bold text-gray-800 border-r">
-                                    <div class="flex items-center justify-between"><div class="flex items-center space-x-3"><svg class="group-icon w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg><span>{{ group_name }}</span><span class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-xs font-medium">{{ activities_in_group|length }} Activities</span></div></div>
+                            <tr class="group-header h-8 border-l-4 border-indigo-500" data-group-id="{{ group_name|slugify }}"> {# COMPACT: Reduced height #}
+                                <td colspan="{% if grouping_method == 'project' %}6{% else %}5{% endif %}" class="sticky-cell col-project px-3 py-1 font-bold text-sm text-gray-800 border-r"> {# COMPACT: Reduced padding and font #}
+                                    <div class="flex items-center justify-between"><div class="flex items-center space-x-3"><svg class="group-icon w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg><span>{{ group_name }}</span><span class="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full text-xs font-medium">{{ activities_in_group|length }} Activities</span></div></div> {# COMPACT: Reduced padding/size on badge #}
                                 </td>
                                 {% for d in gantt_data.header_dates %}
                                     <td class="gantt-cell p-0 relative {% if d.weekday > 4 %}weekend-cell{% elif d in holidays_map %}holiday-cell{% endif %} {% if d == today %}today-cell{% endif %}" 
@@ -596,7 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     
                     const barDiv = document.createElement('div');
-                    barDiv.className = `gantt-bar ${barClass} h-6 mx-1`;
+                    barDiv.className = `gantt-bar ${barClass} mx-1`;
                     barDiv.title = title;
                     cell.appendChild(barDiv);
                 }
@@ -633,7 +642,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cell = cellMap.get(dateStr);
                 if (cell) {
                     const barDiv = document.createElement('div');
-                    let barClasses = 'gantt-bar project-timeline-bar h-4 my-3';
+                    let barClasses = 'gantt-bar project-timeline-bar my-2';
                     
                     if (dateStr === minDate) barClasses += ' summary-bar-start';
                     if (dateStr === maxDate) barClasses += ' summary-bar-end';
