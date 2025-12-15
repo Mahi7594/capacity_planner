@@ -139,7 +139,13 @@ def project_list_view(request):
             form.save()
             return redirect('project_list')
     
-    projects = Project.objects.select_related('segment').prefetch_related('activities').all()
+    # Use select_related/prefetch_related to optimize query
+    projects = Project.objects.select_related('segment', 'team_lead').prefetch_related('activities').all()
+    
+    # Get unique segments and team leads for the filters
+    segments = Segment.objects.filter(project__in=projects).distinct().order_by('name')
+    team_leads = Employee.objects.filter(led_projects__in=projects).distinct().order_by('name')
+
     total_activities_count = Activity.objects.count()
     today = date.today()
     pending_activities_count = Activity.objects.filter(start_date__gt=today).count()
@@ -152,6 +158,8 @@ def project_list_view(request):
         'total_activities_count': total_activities_count,
         'pending_activities_count': pending_activities_count,
         'active_projects_count': active_projects_count,
+        'segments': segments,
+        'team_leads': team_leads,
     }
     return render(request, 'planner/project_list.html', context)
 
