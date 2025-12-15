@@ -12,9 +12,9 @@
     .group-icon { transition: transform 0.2s ease; }
     .group-header.collapsed .group-icon { transform: rotate(-90deg); }
     .project-row:hover .sticky-cell { background: linear-gradient(135deg, #fefce8 0%, #fef3c7 100%); }
-    /* COMPACT: Reduced height for activity bars */
-    .gantt-bar { border-radius: 4px; transition: all 0.2s ease; position: relative; height: 1rem; /* h-4 */ }
-    .gantt-bar:hover { transform: scaleY(1.5); z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+    /* COMPACT: Reduced height for activity bars to fit h-10 rows */
+    .gantt-bar { border-radius: 4px; transition: all 0.2s ease; position: relative; height: 1.25rem; top: 2px; }
+    .gantt-bar:hover { transform: scaleY(1.2); z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
     .activity-bar { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
     .overlap-bar { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); animation: pulse 2s infinite; }
     
@@ -41,11 +41,11 @@
     .weekend-cell { background-color: #f8fafc; }
     .holiday-cell { background-color: #fef9c3; }
     .today-cell { border-left: 2px solid #ef4444 !important; border-right: 2px solid #ef4444 !important; background-color: #fee2e2; }
-    .action-btn { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 2px solid #e2e8f0; transition: all 0.2s ease; }
-    .action-btn:hover { background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%); border-color: #94a3b8; transform: translateY(-1px); }
-    .action-menu { background: white; border: 2px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15); }
-    .filter-input { border: 2px solid #e5e7eb; border-radius: 6px; transition: all 0.2s ease; padding: 0.15rem 0.25rem; font-size: 0.75rem; /* COMPACT */ }
-    .filter-input:focus { border-color: #4f46e5; outline: none; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1); }
+    .action-btn { background: transparent; transition: all 0.2s ease; }
+    .action-btn:hover { color: #4f46e5; transform: scale(1.1); }
+    .action-menu { background: white; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+    .filter-input { border: 1px solid #e5e7eb; border-radius: 4px; transition: all 0.2s ease; padding: 0.15rem 0.25rem; font-size: 0.7rem; }
+    .filter-input:focus { border-color: #4f46e5; outline: none; box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1); }
     
     .btn-success {
         background: linear-gradient(135deg, #10b981 0%, #059669 100%);
@@ -57,7 +57,7 @@
     }
 
     /* --- Key Structural and Sticky Column Styles --- */
-    .table-container { max-height: 75vh; overflow: auto; border-top: 1px solid #e5e7eb; }
+    .table-container { max-height: 75vh; overflow: auto; border-top: 1px solid #e5e7eb; scroll-behavior: smooth; }
     .table-container::-webkit-scrollbar { width: 10px; height: 10px; }
     .table-container::-webkit-scrollbar-track { background: #f1f5f9; }
     .table-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 5px;}
@@ -65,31 +65,31 @@
     .sticky-cell { position: -webkit-sticky; position: sticky; background-color: white; z-index: 20; }
     thead .sticky-cell { z-index: 30; }
 
-    tr.row-is-active {
-        z-index: 40 !important;
-        position: relative;
+    tr.row-is-active .sticky-cell {
+        background-color: #e0e7ff !important; /* light indigo highlight on click */
+        border-bottom: 1px solid #818cf8;
     }
 
     /* COMPACT: Adjusted column widths */
-    .col-project    { width: 120px; min-width: 120px; left: 0px; }
-    .col-activity   { width: 200px; min-width: 200px; left: 120px; }
-    .col-assignee   { width: 150px; min-width: 150px; left: 320px; }
-    .col-start      { width: 80px;  min-width: 80px;  left: 470px; }
-    .col-end        { width: 80px;  min-width: 80px;  left: 550px; }
-    .col-actions    { width: 60px;  min-width: 60px;  left: 630px; }
+    .col-project    { width: 100px; min-width: 100px; left: 0px; }
+    .col-activity   { width: 180px; min-width: 180px; left: 100px; }
+    .col-assignee   { width: 60px; min-width: 60px; left: 280px; text-align: center; }
+    .col-start      { width: 60px;  min-width: 60px;  left: 340px; }
+    .col-end        { width: 60px;  min-width: 60px;  left: 400px; }
+    .col-actions    { width: 40px;  min-width: 40px;  left: 460px; }
 
     /* COMPACT: Adjusted left positions when 'Project' column is not shown */
-    .no-project-col .col-activity { width: 300px; min-width: 300px; left: 0px; } 
-    .no-project-col .col-assignee { left: 300px; }
-    .no-project-col .col-start    { left: 450px; }
-    .no-project-col .col-end      { left: 530px; }
-    .no-project-col .col-actions  { left: 610px; }
+    .no-project-col .col-activity { width: 200px; min-width: 200px; left: 0px; } 
+    .no-project-col .col-assignee { left: 200px; }
+    .no-project-col .col-start    { left: 260px; }
+    .no-project-col .col-end      { left: 320px; }
+    .no-project-col .col-actions  { left: 380px; }
 
     .group-header .sticky-cell { background-color: #f8fafc; }
 
     /* Other styles (Modal, Buttons, etc.) */
     .icon { width: 1.25rem; height: 1.25rem; }
-    .large-icon { width: 2rem; height: 2rem; } /* Reduced from 3rem */
+    .large-icon { width: 2rem; height: 2rem; }
     .grouping-tab { transition: all 0.2s ease; }
     .grouping-tab.active { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: white; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3); }
     .grouping-tab:not(.active) { background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); color: #6b7280; border: 2px solid #e2e8f0; }
@@ -254,30 +254,28 @@
 
             <table class="w-full table-auto border-collapse {% if project or grouping_method == 'engineer' %}no-project-col{% endif %}" style="min-width: 4000px;">
                 <thead class="bg-gray-50 sticky top-0 z-40">
-                    <tr class="h-6"> {# COMPACT: Reduced height #}
-                        <th colspan="{% if not project and grouping_method != 'engineer' %}6{% else %}5{% endif %}" class="sticky-cell col-project px-3 py-1 text-left text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 text-white"> {# COMPACT: Reduced padding #}
+                    <tr class="h-6">
+                        <th colspan="{% if not project and grouping_method != 'engineer' %}6{% else %}5{% endif %}" class="sticky-cell col-project px-3 py-1 text-left text-sm font-semibold bg-gradient-to-r from-indigo-500 to-purple-600 text-white">
                             <div class="flex items-center"><svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>ACTIVITIES BREAKDOWN</div>
                         </th>
-                        {% for month, day_count in gantt_data.months.items %}<th colspan="{{ day_count }}" class="px-2 py-1 text-center text-xs font-semibold border-l bg-gradient-to-r from-indigo-500 to-purple-600 text-white">{{ month }}</th>{% endfor %} {# COMPACT: Reduced font and padding #}
+                        {% for month, day_count in gantt_data.months.items %}<th colspan="{{ day_count }}" class="px-2 py-1 text-center text-xs font-semibold border-l bg-gradient-to-r from-indigo-500 to-purple-600 text-white">{{ month }}</th>{% endfor %}
                     </tr>
-                    <tr class="h-8"> {# COMPACT: Reduced height #}
-                        {# MODIFIED: Show Project column if not a single project view AND not grouped by engineer #}
-                        {% if not project and grouping_method != 'engineer' %}<th class="sticky-cell col-project px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Project</th>{% endif %} {# COMPACT: Reduced padding and font #}
-                        <th class="sticky-cell col-activity px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Activity</th> {# COMPACT: Reduced padding and font #}
-                        <th class="sticky-cell col-assignee px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Assignee</th> {# COMPACT: Reduced padding and font #}
-                        <th class="sticky-cell col-start px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Start</th> {# COMPACT: Reduced padding and font #}
-                        <th class="sticky-cell col-end px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">End</th> {# COMPACT: Reduced padding and font #}
-                        <th class="sticky-cell col-actions px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Actions</th> {# COMPACT: Reduced padding and font #}
-                        {% for d in gantt_data.header_dates %}<th class="gantt-cell text-center text-xs font-medium text-gray-500 w-8 min-w-[32px] {% if d.weekday > 4 %}weekend-cell{% elif d in holidays_map %}holiday-cell{% endif %} {% if d == today %}today-cell{% endif %}" title="{% if d in holidays_map %}{{ holidays_map|get_item:d }}{% else %}{{ d|date:"l, F j, Y" }}{% endif %}"><div class="p-0.5">{{ d.day }}</div></th>{% endfor %} {# COMPACT: Reduced min width and padding/font #}
+                    <tr class="h-8">
+                        {% if not project and grouping_method != 'engineer' %}<th class="sticky-cell col-project px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Project</th>{% endif %}
+                        <th class="sticky-cell col-activity px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Activity</th>
+                        <th class="sticky-cell col-assignee px-3 py-1 text-center text-xs font-medium text-gray-500 uppercase">Assignee</th>
+                        <th class="sticky-cell col-start px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Start</th>
+                        <th class="sticky-cell col-end px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">End</th>
+                        <th class="sticky-cell col-actions px-3 py-1 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                        {% for d in gantt_data.header_dates %}<th class="gantt-cell text-center text-xs font-medium text-gray-500 w-8 min-w-[32px] {% if d.weekday > 4 %}weekend-cell{% elif d in holidays_map %}holiday-cell{% endif %} {% if d == today %}today-cell{% endif %}" title="{% if d in holidays_map %}{{ holidays_map|get_item:d }}{% else %}{{ d|date:"l, F j, Y" }}{% endif %}"><div class="p-0.5">{{ d.day }}</div></th>{% endfor %}
                     </tr>
-                    <tr class="h-8"> {# COMPACT: Reduced height #}
-                        {# MODIFIED: Show Project filter column if not a single project view AND not grouped by engineer #}
-                        {% if not project and grouping_method != 'engineer' %}<th class="sticky-cell col-project p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="project" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th>{% endif %} {# COMPACT: Reduced padding and font #}
-                        <th class="sticky-cell col-activity p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="activity" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th> {# COMPACT: Reduced padding and font #}
-                        <th class="sticky-cell col-assignee p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="assignee" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th> {# COMPACT: Reduced padding and font #}
-                        <th class="sticky-cell col-start p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="start" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th> {# COMPACT: Reduced padding and font #}
-                        <th class="sticky-cell col-end p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="end" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th> {# COMPACT: Reduced padding and font #}
-                        <th class="sticky-cell col-actions p-0.5 bg-gray-100 border-r"></th> {# COMPACT: Reduced padding #}
+                    <tr class="h-8">
+                        {% if not project and grouping_method != 'engineer' %}<th class="sticky-cell col-project p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="project" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th>{% endif %}
+                        <th class="sticky-cell col-activity p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="activity" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th>
+                        <th class="sticky-cell col-assignee p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="assignee" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th>
+                        <th class="sticky-cell col-start p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="start" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th>
+                        <th class="sticky-cell col-end p-0.5 bg-gray-100 border-r"><input type="text" data-filter-column="end" class="filter-input w-full text-xs p-1" placeholder="Filter..."></th>
+                        <th class="sticky-cell col-actions p-0.5 bg-gray-100 border-r"></th>
                         <th colspan="{{ gantt_data.header_dates|length }}" class="bg-gray-100"></th>
                     </tr>
                 </thead>
@@ -288,9 +286,9 @@
                         {% for group_name, activities_in_group in display_data.items %}
                             {% if grouping_method != 'none' %}
                             {% with group_data=group_gantt_data|get_item:group_name %}
-                            <tr class="group-header h-8 border-l-4 border-indigo-500" data-group-id="{{ group_name|slugify }}"> {# COMPACT: Reduced height #}
-                                <td colspan="{% if grouping_method == 'project' %}6{% else %}5{% endif %}" class="sticky-cell col-project px-3 py-1 font-bold text-sm text-gray-800 border-r"> {# COMPACT: Reduced padding and font #}
-                                    <div class="flex items-center justify-between"><div class="flex items-center space-x-3"><svg class="group-icon w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg><span>{{ group_name }}</span><span class="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full text-xs font-medium">{{ activities_in_group|length }} Activities</span></div></div> {# COMPACT: Reduced padding/size on badge #}
+                            <tr class="group-header h-8 border-l-4 border-indigo-500 bg-gray-50" data-group-id="{{ group_name|slugify }}">
+                                <td colspan="{% if grouping_method == 'project' %}6{% else %}5{% endif %}" class="sticky-cell col-project px-3 py-1 font-bold text-sm text-gray-800 border-r">
+                                    <div class="flex items-center justify-between"><div class="flex items-center space-x-3"><svg class="group-icon w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg><span>{{ group_name }}</span><span class="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full text-xs font-medium">{{ activities_in_group|length }} Activities</span></div></div>
                                 </td>
                                 {% for d in gantt_data.header_dates %}
                                     <td class="gantt-cell p-0 relative {% if d.weekday > 4 %}weekend-cell{% elif d in holidays_map %}holiday-cell{% endif %} {% if d == today %}today-cell{% endif %}" 
@@ -408,7 +406,6 @@
 function toggleFilterMenu(menuId) {
     const menu = document.getElementById(menuId);
     const isHidden = menu.classList.contains('hidden');
-    // Hide all menus first
     document.querySelectorAll('.filter-dropdown-menu').forEach(m => m.classList.add('hidden'));
     if (isHidden) {
         menu.classList.remove('hidden');
@@ -441,6 +438,31 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentlyActiveRow = null;
     const tableContainer = document.querySelector('.table-container');
 
+    // NEW: Auto-scroll to Gantt bar on row click
+    document.querySelector('tbody').addEventListener('click', (e) => {
+        // Find the closest activity row
+        const row = e.target.closest('.gantt-activity-row');
+        if (!row) return;
+
+        // Do not trigger if clicking an action button, link, or dropdown
+        if (e.target.closest('.action-btn') || e.target.closest('a') || e.target.closest('.action-menu')) return;
+        
+        // Remove active class from previous row
+        if (currentlyActiveRow) currentlyActiveRow.classList.remove('row-is-active');
+        
+        // Add active highlight to current row
+        row.classList.add('row-is-active');
+        currentlyActiveRow = row;
+
+        // Find the first gantt bar in this row
+        const bar = row.querySelector('.gantt-bar');
+        
+        if (bar) {
+            // Scroll the table container to center the bar horizontally
+            bar.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }
+    });
+
     tableContainer.addEventListener('click', (e) => {
         const actionBtn = e.target.closest('.action-btn');
         if (actionBtn) {
@@ -450,46 +472,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (currentlyOpenMenu && currentlyOpenMenu !== menu) {
                 currentlyOpenMenu.classList.add('hidden');
-                if (currentlyActiveRow) {
-                    currentlyActiveRow.classList.remove('row-is-active');
-                }
             }
 
             const isOpening = menu.classList.toggle('hidden');
             
             if (isOpening) {
-                parentRow.classList.remove('row-is-active');
-                currentlyOpenMenu = null;
-                currentlyActiveRow = null;
-            } else {
-                parentRow.classList.add('row-is-active');
                 currentlyOpenMenu = menu;
-                currentlyActiveRow = parentRow;
+            } else {
+                currentlyOpenMenu = null;
             }
         }
     });
 
     window.addEventListener('click', (e) => {
-        // Close action dropdowns
         if (currentlyOpenMenu && !e.target.closest('.action-dropdown')) {
             currentlyOpenMenu.classList.add('hidden');
-            if (currentlyActiveRow) {
-                currentlyActiveRow.classList.remove('row-is-active');
-            }
             currentlyOpenMenu = null;
-            currentlyActiveRow = null;
         }
         
-        // Close filter dropdowns
         if (!e.target.closest('[id$="FilterDropdown"]')) {
             document.querySelectorAll('.filter-dropdown-menu').forEach(m => m.classList.add('hidden'));
         }
     });
 
-
-    // --- Filter Logic ---
-    const filterInputs = document.querySelectorAll('.filter-input'); // Column filters
-    const searchInput = document.getElementById('searchInput'); // Main search
+    // --- Filter Logic --- (Existing Logic Preserved)
+    const filterInputs = document.querySelectorAll('.filter-input');
+    const searchInput = document.getElementById('searchInput');
     const segmentCheckboxes = document.querySelectorAll('.segment-checkbox');
     const leaderCheckboxes = document.querySelectorAll('.leader-checkbox');
     const assigneeCheckboxes = document.querySelectorAll('.assignee-checkbox');
@@ -502,7 +510,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyFilters() {
         const globalSearch = searchInput ? searchInput.value.toLowerCase().trim() : '';
         
-        // Column filters
         const colFilters = {};
         filterInputs.forEach(input => {
             const column = input.dataset.filterColumn;
@@ -510,18 +517,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (value) colFilters[column] = value;
         });
 
-        // Dropdown filters
-        const selectedSegments = Array.from(segmentCheckboxes)
-                                      .filter(cb => cb.checked)
-                                      .map(cb => cb.value);
-        const selectedLeaders = Array.from(leaderCheckboxes)
-                                     .filter(cb => cb.checked)
-                                     .map(cb => cb.value);
-        const selectedAssignees = Array.from(assigneeCheckboxes)
-                                     .filter(cb => cb.checked)
-                                     .map(cb => cb.value);
+        const selectedSegments = Array.from(segmentCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        const selectedLeaders = Array.from(leaderCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        const selectedAssignees = Array.from(assigneeCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
 
-        // Update button text
         const segmentBtnText = document.getElementById('segmentBtnText');
         if (segmentBtnText) segmentBtnText.textContent = selectedSegments.length > 0 ? `Segments (${selectedSegments.length})` : 'Segments (All)';
         
@@ -536,7 +535,6 @@ document.addEventListener('DOMContentLoaded', () => {
         activityRows.forEach(row => {
             let isVisible = true;
             
-            // 1. Global Search (matches multiple fields)
             if (globalSearch) {
                 const projectCode = row.dataset.projectCode || '';
                 const customer = row.dataset.customer || '';
@@ -554,28 +552,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!matchesGlobal) isVisible = false;
             }
 
-            // 2. Segment Filter
             if (isVisible && selectedSegments.length > 0) {
                 const segment = row.dataset.segment || '';
                 if (!selectedSegments.includes(segment)) isVisible = false;
             }
 
-            // 3. Team Lead Filter
             if (isVisible && selectedLeaders.length > 0) {
                 const teamLead = row.dataset.teamLead || '';
                 if (!selectedLeaders.includes(teamLead)) isVisible = false;
             }
 
-            // 4. Assignee Filter
             if (isVisible && selectedAssignees.length > 0) {
                 const assignee = row.dataset.assignee || '';
                 if (!selectedAssignees.includes(assignee)) isVisible = false;
             }
 
-            // 5. Column Specific Filters
             if (isVisible) {
                 for (const column in colFilters) {
                     const cell = row.querySelector(`[data-filter-column="${column}"]`);
+                    // Use textContent to ensure hidden search spans are included
                     if (!cell || !cell.textContent.toLowerCase().includes(colFilters[column])) {
                         isVisible = false;
                         break;
@@ -583,7 +578,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            const isGroupedAndCollapsed = row.classList.contains('hidden'); // Check if hidden by grouping mechanism
+            const isGroupedAndCollapsed = row.classList.contains('hidden');
             
             if (isVisible) {
                 anyRowVisible = true;
@@ -598,7 +593,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Toggle Group Headers visibility based on visible children
         groupHeaders.forEach(header => {
             const groupId = header.dataset.groupId;
             const childRows = document.querySelectorAll(`.gantt-activity-row[data-group-id="${groupId}"]`);
@@ -610,7 +604,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (noResultsRow) noResultsRow.classList.toggle('hidden', anyRowVisible);
     }
 
-    // Attach Listeners
     if (searchInput) searchInput.addEventListener('keyup', applyFilters);
     filterInputs.forEach(input => input.addEventListener('keyup', applyFilters));
     segmentCheckboxes.forEach(cb => cb.addEventListener('change', applyFilters));
@@ -628,7 +621,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // --- Group Header Collapse Logic ---
     groupHeaders.forEach((header, index) => {
         const groupId = header.dataset.groupId;
         if (!groupId) return;
@@ -642,13 +634,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (isCollapsed) {
                     row.classList.add('hidden');
                 } else {
-                    // Only show if it's not hidden by filter (style.display !== 'none')
                     if (row.style.display !== 'none') { 
                         row.classList.remove('hidden');
                     }
                 }
             });
-            // Re-apply filters ensures consistency
             applyFilters();
         });
 
@@ -684,7 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentDate = new Date(startDate.valueOf());
 
         while (currentDate <= endDate) {
-            const day = currentDate.getUTCDay(); // 0=Sunday, 6=Saturday
+            const day = currentDate.getUTCDay();
             const isWeekend = (day === 0 || day === 6);
             const dateStr = toISODateString(currentDate);
             
@@ -697,12 +687,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderGantt() {
-        console.time('Frontend Gantt Render');
         const dataEl = document.getElementById('gantt-init-data');
-        if (!dataEl) {
-            console.error('Gantt data script tag not found!');
-            return;
-        }
+        if (!dataEl) return;
         
         const data = JSON.parse(dataEl.textContent);
         const activitiesMap = new Map(data.activities.map(act => [act.pk, act]));
@@ -712,7 +698,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const overlaps = new Map();
         const allWorkDays = new Map();
 
-        // 1. Calculate all work days and populate daily occupancy
         activitiesMap.forEach(act => {
             const startDate = parseDate(act.start_date);
             const endDate = parseDate(act.end_date);
@@ -738,7 +723,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Cache DOM elements
         const activityCellCache = new Map();
         const groupCellCache = new Map();
 
@@ -760,7 +744,6 @@ document.addEventListener('DOMContentLoaded', () => {
             groupCellCache.set(groupId, cellMap);
         });
 
-        // 2. Render activity bars
         allWorkDays.forEach((workDays, pk) => {
             const act = activitiesMap.get(pk);
             const cellMap = activityCellCache.get(pk);
@@ -786,7 +769,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         
-        // 3. Render Group Summary Bars
         document.querySelectorAll('.group-header').forEach(headerRow => {
             const groupId = headerRow.dataset.groupId;
             const groupName = headerRow.querySelector('span').textContent || groupId;
@@ -827,22 +809,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
         });
-        console.timeEnd('Frontend Gantt Render');
     }
     
-    // --- Render Execution with Loading State ---
     const loader = document.getElementById('gantt-loader');
-    
-    // Use setTimeout to allow the browser to paint the loader before the heavy rendering task blocks the thread
     setTimeout(() => {
         renderGantt();
-        
-        // Hide Loader with fade effect
         if (loader) {
             loader.style.opacity = '0';
             setTimeout(() => {
                 loader.classList.add('hidden');
-            }, 300); // match duration-300
+            }, 300);
         }
     }, 100);
 });
