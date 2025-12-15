@@ -181,6 +181,25 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="relative inline-block text-left" id="assigneeFilterDropdown">
+                        <button type="button" onclick="toggleFilterMenu('assigneeMenu')" class="inline-flex justify-between w-36 rounded-md border border-gray-300 shadow-sm px-2 py-1 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
+                            <span id="assigneeBtnText">Assignees (All)</span>
+                            <svg class="-mr-1 ml-1 h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <div id="assigneeMenu" class="hidden origin-top-right absolute right-0 mt-1 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 filter-dropdown-menu">
+                            <div class="p-1 space-y-0.5">
+                                {% for assignee in assignees %}
+                                <label class="flex items-center space-x-2 px-2 py-1 hover:bg-gray-100 rounded cursor-pointer">
+                                    <input type="checkbox" value="{{ assignee.name|lower }}" class="assignee-checkbox form-checkbox h-3 w-3 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 transition duration-150 ease-in-out">
+                                    <span class="text-xs text-gray-700">{{ assignee.name }}</span>
+                                </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
                     
                     <button id="clearFilters" class="bg-gray-100 text-gray-600 px-3 py-1 rounded-md hover:bg-gray-200 text-xs font-medium border border-gray-200 transition-colors">Clear</button>
                 </div>
@@ -191,6 +210,18 @@
                     <a href="?group_by=project" class="grouping-tab py-1 px-3 rounded-lg font-semibold text-xs {% if grouping_method == 'project' %}active{% endif %}"><svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>By Project</a>
                     <a href="?group_by=engineer" class="grouping-tab py-1 px-3 rounded-lg font-semibold text-xs {% if grouping_method == 'engineer' %}active{% endif %}"><svg class="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>By Assignee</a>
                     <a href="?group_by=none" class="grouping-tab py-1 px-3 rounded-lg font-semibold text-xs {% if grouping_method == 'none' %}active{% endif %}">Ungrouped</a>
+                    
+                    {% if grouping_method == 'none' %}
+                    <a href="?group_by=none&sort={% if sort_order == 'asc' %}desc{% else %}asc{% endif %}" 
+                       class="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 py-1 px-3 rounded-lg font-semibold text-xs flex items-center transition-colors shadow-sm"
+                       title="Sort by Start Date">
+                        {% if sort_order == 'asc' %}
+                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path></svg> Oldest First
+                        {% else %}
+                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h5m4 0v10m0 0l4-4m-4 4l-4-4"></path></svg> Newest First
+                        {% endif %}
+                    </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -461,6 +492,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchInput = document.getElementById('searchInput'); // Main search
     const segmentCheckboxes = document.querySelectorAll('.segment-checkbox');
     const leaderCheckboxes = document.querySelectorAll('.leader-checkbox');
+    const assigneeCheckboxes = document.querySelectorAll('.assignee-checkbox');
     const clearFiltersBtn = document.getElementById('clearFilters');
     
     const groupHeaders = document.querySelectorAll('.group-header');
@@ -485,6 +517,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedLeaders = Array.from(leaderCheckboxes)
                                      .filter(cb => cb.checked)
                                      .map(cb => cb.value);
+        const selectedAssignees = Array.from(assigneeCheckboxes)
+                                     .filter(cb => cb.checked)
+                                     .map(cb => cb.value);
 
         // Update button text
         const segmentBtnText = document.getElementById('segmentBtnText');
@@ -492,6 +527,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const leadBtnText = document.getElementById('leadBtnText');
         if (leadBtnText) leadBtnText.textContent = selectedLeaders.length > 0 ? `Team Leads (${selectedLeaders.length})` : 'Team Leads (All)';
+
+        const assigneeBtnText = document.getElementById('assigneeBtnText');
+        if (assigneeBtnText) assigneeBtnText.textContent = selectedAssignees.length > 0 ? `Assignees (${selectedAssignees.length})` : 'Assignees (All)';
 
         let anyRowVisible = false;
         
@@ -528,7 +566,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!selectedLeaders.includes(teamLead)) isVisible = false;
             }
 
-            // 4. Column Specific Filters
+            // 4. Assignee Filter
+            if (isVisible && selectedAssignees.length > 0) {
+                const assignee = row.dataset.assignee || '';
+                if (!selectedAssignees.includes(assignee)) isVisible = false;
+            }
+
+            // 5. Column Specific Filters
             if (isVisible) {
                 for (const column in colFilters) {
                     const cell = row.querySelector(`[data-filter-column="${column}"]`);
@@ -571,6 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
     filterInputs.forEach(input => input.addEventListener('keyup', applyFilters));
     segmentCheckboxes.forEach(cb => cb.addEventListener('change', applyFilters));
     leaderCheckboxes.forEach(cb => cb.addEventListener('change', applyFilters));
+    assigneeCheckboxes.forEach(cb => cb.addEventListener('change', applyFilters));
     
     if (clearFiltersBtn) {
         clearFiltersBtn.addEventListener('click', function() {
@@ -578,6 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
             filterInputs.forEach(input => input.value = '');
             segmentCheckboxes.forEach(cb => cb.checked = false);
             leaderCheckboxes.forEach(cb => cb.checked = false);
+            assigneeCheckboxes.forEach(cb => cb.checked = false);
             applyFilters();
         });
     }

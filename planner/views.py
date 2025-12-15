@@ -164,31 +164,42 @@ def project_list_view(request):
 def consolidated_planner_view(request):
     form = ActivityForm()
     grouping_method = request.GET.get('group_by', 'project')
+    sort_order = request.GET.get('sort', 'asc')
+
     if request.method == 'POST' and 'add_activity' in request.POST:
         form = ActivityForm(request.POST)
         if form.is_valid():
             form.save()
-            query_string = urlencode({'group_by': grouping_method})
-            return redirect(f"{reverse('consolidated_planner')}?{query_string}")
+            query_params = {'group_by': grouping_method}
+            if sort_order: query_params['sort'] = sort_order
+            return redirect(f"{reverse('consolidated_planner')}?{urlencode(query_params)}")
 
-    # Prefetch relevant data for filtering
     all_activities_qs = Activity.objects.select_related('project__segment', 'project__team_lead', 'project_type__category', 'assignee').all()
     context = _prepare_gantt_context(all_activities_qs)
 
-    # Get filter data from all projects (to be consistent with project list)
+    # Fetch filter options
     all_projects = Project.objects.all()
     segments = Segment.objects.filter(project__in=all_projects).distinct().order_by('name')
     team_leads = Employee.objects.filter(led_projects__in=all_projects).distinct().order_by('name')
+    assignees = Employee.objects.filter(is_active=True).order_by('name')
 
     display_data = defaultdict(list)
     if grouping_method == 'engineer':
         sorted_activities = sorted(context['activities'], key=lambda a: (a.assignee.name if a.assignee else "Unassigned", a.start_date))
         for act in sorted_activities:
             display_data[act.assignee.name if act.assignee else "Unassigned"].append(act)
+            
     elif grouping_method == 'none':
-        # Ungrouped mode
-        sorted_activities = sorted(context['activities'], key=lambda a: a.start_date)
+        # Ungrouped mode with sorting
+        reverse_sort = True if sort_order == 'desc' else False
+        # Use a safe key for sorting: if start_date is None, use min or max date to avoid comparison errors
+        sorted_activities = sorted(
+            context['activities'], 
+            key=lambda a: a.start_date if a.start_date else (date.max if reverse_sort else date.min), 
+            reverse=reverse_sort
+        )
         display_data['All Activities'] = sorted_activities
+        
     else: 
         # Default fallback to 'project'
         grouping_method = 'project'
@@ -217,9 +228,11 @@ def consolidated_planner_view(request):
         'active_nav': 'projects',
         'display_data': dict(display_data),
         'grouping_method': grouping_method,
+        'sort_order': sort_order,
         'gantt_init_data': gantt_init_data,
         'segments': segments,
-        'team_leads': team_leads
+        'team_leads': team_leads,
+        'assignees': assignees
     })
     return render(request, 'planner/activity_planner.html', context)
 
