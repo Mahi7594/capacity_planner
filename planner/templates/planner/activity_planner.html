@@ -16,7 +16,10 @@
     /* COMPACT: Reduced height for activity bars */
     .gantt-bar { border-radius: 4px; transition: all 0.2s ease; position: relative; height: 1.25rem; top: 2px; }
     .gantt-bar:hover { transform: scaleY(1.2); z-index: 10; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
+    
+    /* Bar Colors */
     .activity-bar { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); }
+    .leave-bar { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); /* Orange */ }
     .overlap-bar { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); animation: pulse 2s infinite; }
     
     /* Summary Bar Styling */
@@ -615,6 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isVisible) {
                 for (const column in colFilters) {
                     const cell = row.querySelector(`[data-filter-column="${column}"]`);
+                    // Use textContent to ensure hidden search spans are included
                     if (!cell || !cell.textContent.toLowerCase().includes(colFilters[column])) {
                         isVisible = false;
                         break;
@@ -738,6 +742,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const activitiesMap = new Map(data.activities.map(act => [act.pk, act]));
         const holidaysSet = new Set(data.holidays);
         
+        // NEW: Leave Logic
+        const leavesMap = new Map(Object.entries(data.leaves || {}));
+        
         const dailyOccupancy = new Map();
         const overlaps = new Map();
         const allWorkDays = new Map();
@@ -800,7 +807,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     let barClass = 'activity-bar';
                     let title = `📋 ${act.name}\n👤 ${act.assignee || 'Unassigned'}\n📅 ${dateStr}`;
 
-                    if (act.assignee && overlaps.has(dateStr) && overlaps.get(dateStr).has(act.assignee)) {
+                    // Check for Leaves
+                    const assigneeLeaves = leavesMap.get(act.assignee);
+                    const isLeave = assigneeLeaves && assigneeLeaves.includes(dateStr);
+
+                    if (isLeave) {
+                        barClass = 'leave-bar'; // Orange color
+                        title = `🏖️ On Leave: ${act.assignee}\n` + title;
+                    }
+                    // Only check overlap if NOT on leave (leave takes precedence visually?)
+                    // Or should overlap show even if on leave? Typically leave means not available.
+                    else if (act.assignee && overlaps.has(dateStr) && overlaps.get(dateStr).has(act.assignee)) {
                         barClass = 'overlap-bar';
                         title = `⚠️ OVERLAP: ${act.assignee} on ${dateStr}\n` + title;
                     }

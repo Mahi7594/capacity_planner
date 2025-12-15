@@ -19,6 +19,25 @@ from django.views.decorators.http import require_POST
 # Define this constant at the top of the file to avoid "magic numbers"
 CR = 10_000_000
 
+# --- Helper to prepare leaves map for Gantt ---
+def _get_leaves_map():
+    """
+    Returns a dictionary mapping employee names to a list of ISO date strings
+    representing their leave days.
+    Structure: {'John Doe': ['2023-01-01', '2023-01-02'], ...}
+    """
+    leaves_qs = Leave.objects.select_related('employee').all()
+    leaves_map = defaultdict(set) # Use set for faster lookup, convert to list for JSON
+    
+    for leave in leaves_qs:
+        current = leave.start_date
+        while current <= leave.end_date:
+            leaves_map[leave.employee.name].add(current.isoformat())
+            current += timedelta(days=1)
+            
+    # Convert sets to lists for JSON serialization
+    return {k: list(v) for k, v in leaves_map.items()}
+
 def _prepare_gantt_context(activities_qs):
     activities_list = list(activities_qs)
     today = date.today()
@@ -220,6 +239,7 @@ def consolidated_planner_view(request):
             } for act in context['activities']
         ],
         'holidays': [h.isoformat() for h in context['holidays_map'].keys()],
+        'leaves': _get_leaves_map(),  # NEW: Inject leaves
         'today': context['today'].isoformat()
     }
 
@@ -262,6 +282,7 @@ def activity_planner_view(request, project_pk):
             } for act in context['activities']
         ],
         'holidays': [h.isoformat() for h in context['holidays_map'].keys()],
+        'leaves': _get_leaves_map(),  # NEW: Inject leaves
         'today': context['today'].isoformat()
     }
 
@@ -273,6 +294,7 @@ def activity_planner_view(request, project_pk):
     })
     return render(request, 'planner/activity_planner.html', context)
 
+# ... (rest of the views remain unchanged) ...
 def _get_workforce_context():
     today = date.today()
     return {
@@ -290,9 +312,6 @@ def _get_workforce_context():
 def workforce_view(request):
     error_message = None
     entered_data = {}
-    
-    # Determine which tab should be active. Default is 'employees'.
-    # If ?tab=leaves is in the URL, that takes precedence.
     active_tab = request.GET.get('tab', 'employees')
     
     if request.method == 'POST':
@@ -306,28 +325,26 @@ def workforce_view(request):
                 if Employee.objects.filter(name__iexact=name).exists():
                     error_message = f"Team member with name '{name}' already exists."
                     entered_data = {'name': name, 'designation': designation, 'is_active': is_active_val}
-                    active_tab = 'employees' # Stay on employees tab on error
+                    active_tab = 'employees'
                 else:
                     Employee.objects.create(name=name, designation=designation, is_active=is_active)
-                    # Redirect to employees tab (default)
                     return redirect('workforce')
         
         elif 'add_leave' in request.POST:
             leave_form = LeaveForm(request.POST)
             if leave_form.is_valid():
                 leave_form.save()
-                # Redirect specifically to the leaves tab
                 return redirect(f"{reverse('workforce')}?tab=leaves")
             else:
                 error_message = "Error adding leave. Please check dates."
-                active_tab = 'leaves' # Stay on leaves tab on error
+                active_tab = 'leaves'
 
     context = _get_workforce_context()
     context.update({
         'error_message': error_message,
         'entered_data': entered_data,
         'leave_form': LeaveForm(),
-        'active_tab': active_tab, # Pass the active tab to the template
+        'active_tab': active_tab,
     })
     return render(request, 'planner/workforce.html', context)
 
@@ -361,7 +378,6 @@ def toggle_employee_status_view(request, pk):
 
 def configuration_view(request):
     if request.method == 'POST':
-        # Modified Redirects to include anchor hashes for better UX
         if 'add_holiday' in request.POST:
             Holiday.objects.get_or_create(date=request.POST.get('holiday_date'), defaults={'description': request.POST.get('description')})
             return redirect(f"{reverse('configuration')}#holidays")
@@ -409,12 +425,10 @@ def delete_employee_view(request, pk):
 
 def delete_leave_view(request, pk):
     get_object_or_404(Leave, pk=pk).delete()
-    # Redirect specifically to the leaves tab
     return redirect(f"{reverse('workforce')}?tab=leaves")
 
 def delete_holiday_view(request, pk):
     get_object_or_404(Holiday, pk=pk).delete()
-    # Return to the holidays section
     return redirect(f"{reverse('configuration')}#holidays")
 
 def edit_activity_view(request, pk):
@@ -472,7 +486,6 @@ def edit_project_type_view(request, pk):
 
 def delete_project_type_view(request, pk):
     get_object_or_404(ProjectType, pk=pk).delete()
-    # Return to the project types section
     return redirect(f"{reverse('configuration')}#project-types")
 
 def capacity_plan_view(request):
@@ -488,12 +501,10 @@ def capacity_plan_view(request):
         'MANAGER': Employee.objects.filter(designation='MANAGER', is_active=True).count()
     }
     
-    # 1. Define Periods based on View Type
     periods = []
     if view_type == 'week':
-        # Start from Monday of current week
         start_date = today - timedelta(days=today.weekday())
-        for i in range(24): # 24 Weeks (~6 months)
+        for i in range(24): 
             p_start = start_date + timedelta(weeks=i)
             p_end = p_start + timedelta(days=6)
             periods.append({
@@ -503,10 +514,9 @@ def capacity_plan_view(request):
                 'label': p_start.strftime('W%W %d %b')
             })
     elif view_type == 'quarter':
-        # Start of current quarter
         q_month = (today.month - 1) // 3 * 3 + 1
         start_date = date(today.year, q_month, 1)
-        for i in range(8): # 8 Quarters (2 years)
+        for i in range(8):
             year_offset = (start_date.month + (i*3) - 1) // 12
             month = (start_date.month + (i*3) - 1) % 12 + 1
             year = start_date.year + year_offset
@@ -519,7 +529,7 @@ def capacity_plan_view(request):
             
             q_label = f"Q{(month-1)//3 + 1} {year}"
             periods.append({'start': p_start, 'end': p_end, 'key': q_label, 'label': q_label})
-    else: # Month (Default)
+    else: 
         start_date = today.replace(day=1)
         for i in range(12):
             year_offset = (start_date.month + i - 1) // 12
@@ -535,7 +545,6 @@ def capacity_plan_view(request):
                 'label': p_start.strftime('%b %Y')
             })
 
-    # Pre-compute date-to-period key map for the total range
     date_to_key = {}
     if periods:
         min_date = periods[0]['start']
@@ -548,25 +557,20 @@ def capacity_plan_view(request):
                     break
             curr += timedelta(days=1)
 
-    # NEW: Fetch All Relevant Leaves
     all_leaves = Leave.objects.select_related('employee').filter(end_date__gte=min_date, start_date__lte=max_date)
-    # Organize leaves by designation
     leaves_by_designation = defaultdict(list)
     for leave in all_leaves:
         leaves_by_designation[leave.employee.designation].append(leave)
 
-    # 2. Calculate Supply
     supply_data = defaultdict(dict)
     for p in periods:
         working_days = count_working_days(p['start'], p['end'], holidays)
-        # Approximate factor to scale monthly capacity settings (leaves/meetings) to the period
         period_days = (p['end'] - p['start']).days + 1
         month_factor = period_days / 30.44 
 
         for designation, count in workforce_counts.items():
             settings = capacity_settings[designation]
             
-            # Calculate Specific Leave Days in this period for this designation
             total_leave_man_days = 0
             for leave in leaves_by_designation[designation]:
                 total_leave_man_days += calculate_overlap_working_days(
@@ -574,16 +578,9 @@ def capacity_plan_view(request):
                     p['start'], p['end'], holidays
                 )
             
-            # Gross Hours = (Total Potential Man Days - Actual Leave Man Days) * Hours/Day
             gross_hours = ((count * working_days) - total_leave_man_days) * general_settings.working_hours_per_day
-            
-            # Non-project hours (Meetings) - Removed general leave settings to avoid double counting if using specific leaves
-            # However, we might want to keep generic leaves for unplanned sickness? 
-            # For now, let's assume 'monthly_leave_hours' in settings acts as a buffer for UNPLANNED leaves
             non_project_hours = count * (settings.monthly_meeting_hours + settings.monthly_leave_hours) * month_factor
-            
             efficiency_loss = (gross_hours - non_project_hours) * (settings.efficiency_loss_factor / 100)
-            
             net_hours = gross_hours - non_project_hours - efficiency_loss
             
             supply_data[designation][p['key']] = {
@@ -591,12 +588,10 @@ def capacity_plan_view(request):
                 'headcount': count
             }
 
-    # 3. Calculate Demand & Segment Breakdowns (unchanged logic)
     demand_hours = defaultdict(lambda: defaultdict(float))
     live_workload_by_segment = defaultdict(lambda: defaultdict(float))
     forecasted_workload_by_segment = defaultdict(lambda: defaultdict(float))
     
-    # Calculate Live Demand
     for activity in Activity.objects.select_related('assignee', 'project__segment').filter(
         assignee__isnull=False, start_date__isnull=False, end_date__isnull=False
     ):
@@ -604,7 +599,6 @@ def capacity_plan_view(request):
         current_date = activity.start_date
         while current_date <= activity.end_date:
             if current_date.weekday() < 5 and current_date not in holidays:
-                # Use date_to_key mapping
                 if current_date in date_to_key:
                     m_key = date_to_key[current_date]
                     demand_hours[activity.assignee.designation][m_key] += daily_hours
@@ -613,7 +607,6 @@ def capacity_plan_view(request):
                         live_workload_by_segment[activity.project.segment.name][m_key] += daily_hours
             current_date += timedelta(days=1)
 
-    # Calculate Forecast Demand
     project_types_with_brackets = ProjectType.objects.prefetch_related('effort_brackets')
     pt_bracket_map = {pt.id: list(pt.effort_brackets.all()) for pt in project_types_with_brackets}
     pt_map = {(pt.segment.name, pt.category.name): pt.id for pt in ProjectType.objects.select_related('segment', 'category')}
