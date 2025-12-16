@@ -544,6 +544,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Filter Logic --- (Existing Logic Preserved)
+    
+    // NEW: Close dropdowns when clicking outside
+    document.addEventListener('click', (e) => {
+        const isDropdownClick = e.target.closest('#segmentFilterDropdown') || 
+                                e.target.closest('#leadFilterDropdown') || 
+                                e.target.closest('#assigneeFilterDropdown');
+        
+        if (!isDropdownClick) {
+             document.querySelectorAll('.filter-dropdown-menu').forEach(m => m.classList.add('hidden'));
+        }
+    });
+
     const filterInputs = document.querySelectorAll('.filter-input');
     const searchInput = document.getElementById('searchInput');
     const segmentCheckboxes = document.querySelectorAll('.segment-checkbox');
