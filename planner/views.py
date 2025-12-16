@@ -15,6 +15,7 @@ import json
 from .utils import calculate_end_date, count_working_days, calculate_effort_from_value, calculate_overlap_working_days
 import calendar
 from django.views.decorators.http import require_POST
+from itertools import groupby
 
 # Define this constant at the top of the file to avoid "magic numbers"
 CR = 10_000_000
@@ -588,7 +589,9 @@ def capacity_plan_view(request):
                 'headcount': count
             }
 
-    demand_hours = defaultdict(lambda: defaultdict(float))
+    # -- TRACK DAILY DEMAND FOR WEEKLY MAX CALCULATION --
+    daily_demand = defaultdict(lambda: defaultdict(float)) # {designation: {date: hours}}
+    
     live_workload_by_segment = defaultdict(lambda: defaultdict(float))
     forecasted_workload_by_segment = defaultdict(lambda: defaultdict(float))
     
@@ -599,10 +602,12 @@ def capacity_plan_view(request):
         current_date = activity.start_date
         while current_date <= activity.end_date:
             if current_date.weekday() < 5 and current_date not in holidays:
+                # Track daily demand
+                daily_demand[activity.assignee.designation][current_date] += daily_hours
+                
+                # Keep tracking sum for segment charts
                 if current_date in date_to_key:
                     m_key = date_to_key[current_date]
-                    demand_hours[activity.assignee.designation][m_key] += daily_hours
-                    
                     if activity.project.segment:
                         live_workload_by_segment[activity.project.segment.name][m_key] += daily_hours
             current_date += timedelta(days=1)
@@ -636,12 +641,14 @@ def capacity_plan_view(request):
         current_date = forecast.start_date
         while current_date <= forecast.end_date:
             if current_date.weekday() < 5 and current_date not in holidays:
+                # Track daily demand
+                daily_demand['ENGINEER'][current_date] += daily_eng_hours
+                daily_demand['TEAM_LEAD'][current_date] += daily_tl_hours
+                daily_demand['MANAGER'][current_date] += daily_mgr_hours
+
+                # Keep tracking sum for segment charts
                 if current_date in date_to_key:
                     month_key = date_to_key[current_date]
-                    demand_hours['ENGINEER'][month_key] += daily_eng_hours
-                    demand_hours['TEAM_LEAD'][month_key] += daily_tl_hours
-                    demand_hours['MANAGER'][month_key] += daily_mgr_hours
-                    
                     if forecast.segment:
                         forecasted_workload_by_segment[forecast.segment][month_key] += total_daily_hours
             current_date += timedelta(days=1)
@@ -649,6 +656,7 @@ def capacity_plan_view(request):
     global_live_workload = defaultdict(float)
     global_forecast_workload = defaultdict(float)
     
+    # Calculate global sums for Charts (Workload Volume)
     for activity in Activity.objects.filter(assignee__isnull=False, start_date__isnull=False, end_date__isnull=False):
         current_date = activity.start_date
         while current_date <= activity.end_date:
@@ -710,13 +718,76 @@ def capacity_plan_view(request):
     report = []
     for des_value, des_display in Employee.DESIGNATION_CHOICES:
         des_data = {'designation': des_display, 'months': []}
+        settings = capacity_settings[des_value]
+        
         for p in periods:
             supply = supply_data[des_value].get(p['key'], {})
             available_hours = supply.get('available_hours', 0)
             headcount = supply.get('headcount', 0)
-            required_hours = demand_hours[des_value].get(p['key'], 0)
-            hours_per_person = (available_hours / headcount) if headcount > 0 else 0
-            required_headcount = (required_hours / hours_per_person) if hours_per_person > 0 else 0
+            
+            # --- WEEKLY MAX REQUIREMENT LOGIC ---
+            # 1. Identify all dates in this period
+            dates_in_period = []
+            curr = p['start']
+            while curr <= p['end']:
+                dates_in_period.append(curr)
+                curr += timedelta(days=1)
+            
+            # 2. Group dates by ISO Week (Year, WeekNum)
+            # This buckets days into their respective weeks.
+            # groupby requires sorted input, but dates are already sorted.
+            week_groups = groupby(dates_in_period, key=lambda d: d.isocalendar()[:2])
+            
+            weekly_headcount_reqs = []
+            
+            for week_key, days_iter in week_groups:
+                days_in_week_chunk = list(days_iter)
+                
+                # Filter for working days only for capacity calc
+                working_days_in_chunk = [d for d in days_in_week_chunk if d.weekday() < 5 and d not in holidays]
+                count_working_days_week = len(working_days_in_chunk)
+                
+                if count_working_days_week == 0:
+                    continue
+                
+                # Calculate Weekly Demand (Sum of daily demands for these days)
+                weekly_demand = sum(daily_demand[des_value].get(d, 0.0) for d in days_in_week_chunk)
+                
+                # Calculate Effective Capacity Per Person for this week chunk
+                # Formula: WorkingDays * HoursPerDay * EfficiencyFactor
+                effective_weekly_capacity_per_person = (
+                    count_working_days_week * general_settings.working_hours_per_day * (1 - settings.efficiency_loss_factor / 100)
+                )
+                
+                # Calculate Headcount Req for this week
+                if effective_weekly_capacity_per_person > 0:
+                    req_hc = weekly_demand / effective_weekly_capacity_per_person
+                    weekly_headcount_reqs.append(req_hc)
+                else:
+                    weekly_headcount_reqs.append(0)
+
+            # 3. Determine Period Requirement (Max of Weekly Reqs)
+            required_headcount = max(weekly_headcount_reqs) if weekly_headcount_reqs else 0.0
+            
+            # 4. Calculate Required Hours for Display
+            # To make the table consistent, we back-calculate Required Hours 
+            # based on the Max Headcount and the Period's average capacity per person.
+            # This ensures (Available - Required) Variance reflects the headcount gap.
+            
+            period_avg_hours_per_person = (available_hours / headcount) if headcount > 0 else 0
+            
+            # Fallback if no headcount exists to determine period hours
+            if period_avg_hours_per_person == 0:
+                total_w_days = count_working_days(p['start'], p['end'], holidays)
+                period_days = (p['end'] - p['start']).days + 1
+                month_factor = period_days / 30.44
+                gross = total_w_days * general_settings.working_hours_per_day
+                deductions = (settings.monthly_meeting_hours + settings.monthly_leave_hours) * month_factor
+                net = gross - deductions
+                period_avg_hours_per_person = net * (1 - settings.efficiency_loss_factor / 100)
+                
+            required_hours = required_headcount * period_avg_hours_per_person
+
             des_data['months'].append({
                 'month': p['label'], 
                 'available_hours': available_hours, 
