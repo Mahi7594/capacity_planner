@@ -246,7 +246,7 @@
                                 <td class="px-3 py-2 text-xs font-medium">{{ holiday.date|date:"M d, Y" }}</td>
                                 <td class="px-3 py-2 text-xs text-gray-600">{{ holiday.description }}</td>
                                 <td class="px-3 py-2 text-xs">
-                                    <form method="POST" action="{% url 'delete_holiday' holiday.pk %}" 
+                                    <form method="POST" action="{% url 'planner_delete_holiday' holiday.pk %}"
                                           onsubmit="return confirm('Delete this holiday?');" class="inline">
                                         {% csrf_token %}
                                         <button type="submit" class="btn-danger">Delete</button>
@@ -354,11 +354,11 @@
                                     </div>
                                 </td>
                                 <td class="px-3 py-2 text-xs space-x-2">
-                                    <a href="{% url 'edit_project_type' type.pk %}?next={{ request.path }}" 
+                                    <a href="{% url 'planner_edit_project_type' type.pk %}?next={{ request.path }}"
                                        class="text-indigo-600 hover:text-indigo-800 font-medium">Edit</a>
                                     <button class="manage-benchmarks-btn text-purple-600 hover:text-purple-800 font-medium" 
                                             data-type-id="{{ type.pk }}" data-type-name="{{ type }}">Benchmarks</button>
-                                    <form method="POST" action="{% url 'delete_project_type' type.pk %}" 
+                                    <form method="POST" action="{% url 'planner_delete_project_type' type.pk %}"
                                           class="inline" onsubmit="return confirm('Delete this type?');">
                                         {% csrf_token %}
                                         <button type="submit" class="btn-danger">Delete</button>

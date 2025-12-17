@@ -123,7 +123,7 @@ def sales_forecast_view(request):
             
         if 'delete_all' in request.POST:
             SalesForecast.objects.all().delete()
-            return redirect('sales_forecast')
+            return redirect('planner_sales_forecast')
 
     project_types_with_brackets = ProjectType.objects.prefetch_related('effort_brackets')
     pt_bracket_map = {pt.id: list(pt.effort_brackets.all()) for pt in project_types_with_brackets}
@@ -157,7 +157,7 @@ def project_list_view(request):
             
         if form.is_valid():
             form.save()
-            return redirect('project_list')
+            return redirect('planner_project_list')
     
     projects = Project.objects.select_related('segment', 'team_lead').prefetch_related('activities').all()
     
@@ -192,7 +192,7 @@ def consolidated_planner_view(request):
             form.save()
             query_params = {'group_by': grouping_method}
             if sort_order: query_params['sort'] = sort_order
-            return redirect(f"{reverse('consolidated_planner')}?{urlencode(query_params)}")
+            return redirect(f"{reverse('planner_consolidated_planner')}?{urlencode(query_params)}")
 
     all_activities_qs = Activity.objects.select_related('project__segment', 'project__team_lead', 'project_type__category', 'assignee').all()
     context = _prepare_gantt_context(all_activities_qs)
@@ -264,7 +264,7 @@ def activity_planner_view(request, project_pk):
         form = ActivityForm(request.POST)
         if form.is_valid():
             form.save()
-            return redirect('activity_planner', project_pk=project.pk)
+            return redirect('planner_activity_planner', project_pk=project.pk)
 
     activities_qs = Activity.objects.filter(project=project).select_related(
         'project', 'project_type__category', 'assignee'
@@ -329,13 +329,13 @@ def workforce_view(request):
                     active_tab = 'employees'
                 else:
                     Employee.objects.create(name=name, designation=designation, is_active=is_active)
-                    return redirect('workforce')
+                    return redirect('planner_workforce')
         
         elif 'add_leave' in request.POST:
             leave_form = LeaveForm(request.POST)
             if leave_form.is_valid():
                 leave_form.save()
-                return redirect(f"{reverse('workforce')}?tab=leaves")
+                return redirect(f"{reverse('planner_workforce')}?tab=leaves")
             else:
                 error_message = "Error adding leave. Please check dates."
                 active_tab = 'leaves'
@@ -367,21 +367,21 @@ def update_employee_view(request, pk):
             employee.designation = designation
             employee.is_active = is_active
             employee.save()
-            return redirect('workforce')
-    return redirect('workforce')
+            return redirect('planner_workforce')
+    return redirect('planner_workforce')
 
 def toggle_employee_status_view(request, pk):
     if request.method == 'POST':
         employee = get_object_or_404(Employee, pk=pk)
         employee.is_active = not employee.is_active
         employee.save()
-    return redirect('workforce')
+        return redirect('planner_workforce')
 
 def configuration_view(request):
     if request.method == 'POST':
         if 'add_holiday' in request.POST:
             Holiday.objects.get_or_create(date=request.POST.get('holiday_date'), defaults={'description': request.POST.get('description')})
-            return redirect(f"{reverse('configuration')}#holidays")
+            return redirect(f"{reverse('planner_configuration')}#holidays")
         elif 'add_project_type' in request.POST:
             segment = get_object_or_404(Segment, pk=request.POST.get('segment'))
             category = get_object_or_404(Category, pk=request.POST.get('category'))
@@ -390,12 +390,12 @@ def configuration_view(request):
                 'team_lead_involvement': request.POST.get('team_lead_involvement'),
                 'manager_involvement': request.POST.get('manager_involvement')
             })
-            return redirect(f"{reverse('configuration')}#project-types")
+            return redirect(f"{reverse('planner_configuration')}#project-types")
         elif 'update_general_settings' in request.POST:
             general_settings, _ = GeneralSettings.objects.get_or_create(pk=1)
             general_settings.working_hours_per_day = request.POST.get('working_hours_per_day', 8.0)
             general_settings.save()
-            return redirect(f"{reverse('configuration')}#general-settings")
+            return redirect(f"{reverse('planner_configuration')}#general-settings")
         elif 'update_capacity_settings' in request.POST:
             for choice, _ in Employee.DESIGNATION_CHOICES:
                 setting, _ = CapacitySettings.objects.get_or_create(designation=choice)
@@ -403,8 +403,8 @@ def configuration_view(request):
                 setting.monthly_leave_hours = request.POST.get(f'leave_hours_{choice}', 0)
                 setting.efficiency_loss_factor = request.POST.get(f'efficiency_{choice}', 0)
                 setting.save()
-            return redirect(f"{reverse('configuration')}#capacity-settings")
-        return redirect('configuration')
+            return redirect(f"{reverse('planner_configuration')}#capacity-settings")
+        return redirect('planner_configuration')
 
     context = {
         'general_settings': GeneralSettings.objects.get_or_create(pk=1)[0],
@@ -418,24 +418,24 @@ def configuration_view(request):
 
 def delete_project_view(request, pk):
     get_object_or_404(Project, pk=pk).delete()
-    return redirect('project_list')
+    return redirect('planner_project_list')
 
 def delete_employee_view(request, pk):
     get_object_or_404(Employee, pk=pk).delete()
-    return redirect('workforce')
+    return redirect('planner_workforce')
 
 def delete_leave_view(request, pk):
     get_object_or_404(Leave, pk=pk).delete()
-    return redirect(f"{reverse('workforce')}?tab=leaves")
+    return redirect(f"{reverse('planner_workforce')}?tab=leaves")
 
 def delete_holiday_view(request, pk):
     get_object_or_404(Holiday, pk=pk).delete()
-    return redirect(f"{reverse('configuration')}#holidays")
+    return redirect(f"{reverse('planner_configuration')}#holidays")
 
 def edit_activity_view(request, pk):
     activity = get_object_or_404(Activity, pk=pk)
     next_url = request.GET.get('next')
-    default_redirect_url = reverse('activity_planner', kwargs={'project_pk': activity.project.pk})
+    default_redirect_url = reverse('planner_activity_planner', kwargs={'project_pk': activity.project.pk})
     
     if request.method == 'POST':
         form = ActivityForm(request.POST, instance=activity)
@@ -458,13 +458,13 @@ def delete_activity_view(request, pk):
     project_pk = activity.project.pk
     next_url = request.POST.get('next')
     activity.delete()
-    default_redirect_url = reverse('activity_planner', kwargs={'project_pk': project_pk})
+    default_redirect_url = reverse('planner_activity_planner', kwargs={'project_pk': project_pk})
     return redirect(next_url or default_redirect_url)
 
 def edit_project_type_view(request, pk):
     project_type = get_object_or_404(ProjectType, pk=pk)
     next_url = request.GET.get('next')
-    default_redirect_url = reverse('configuration')
+    default_redirect_url = reverse('planner_configuration')
     
     if request.method == 'POST':
         project_type.segment = get_object_or_404(Segment, pk=request.POST.get('segment'))
@@ -487,7 +487,7 @@ def edit_project_type_view(request, pk):
 
 def delete_project_type_view(request, pk):
     get_object_or_404(ProjectType, pk=pk).delete()
-    return redirect(f"{reverse('configuration')}#project-types")
+    return redirect(f"{reverse('planner_configuration')}#project-types")
 
 def capacity_plan_view(request):
     view_type = request.GET.get('view_type', 'month')

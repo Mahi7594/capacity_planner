@@ -35,7 +35,7 @@
                 <p class="text-xs text-gray-500 mt-0.5">Manage your projects and track activities across your organization</p>
             </div>
             <div class="flex space-x-2">
-                <a href="{% url 'consolidated_planner' %}" class="bg-purple-600 text-white py-1.5 px-3 rounded-md shadow-sm hover:bg-purple-700 flex items-center text-xs font-medium transition-colors">
+                <a href="{% url 'planner_consolidated_planner' %}" class="bg-purple-600 text-white py-1.5 px-3 rounded-md shadow-sm hover:bg-purple-700 flex items-center text-xs font-medium transition-colors">
                     <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                     </svg>
@@ -215,13 +215,13 @@
                         </td>
                         <td class="px-3 py-1.5 whitespace-nowrap text-right text-xs font-medium">
                             <div class="flex items-center justify-end space-x-1">
-                                <a href="{% url 'activity_planner' project.pk %}" class="text-gray-400 hover:text-indigo-600 transition-colors p-1" title="Manage Activities">
+                                <a href="{% url 'planner_activity_planner' project.pk %}" class="text-gray-400 hover:text-indigo-600 transition-colors p-1" title="Manage Activities">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                                 </a>
                                 <button onclick="editProject({{ project.pk }}, '{{ project.project_id }}', '{{ project.customer_name }}', {{ project.team_lead.pk|default:'null' }}, {{ project.segment.pk|default:'null' }})" class="text-gray-400 hover:text-blue-600 transition-colors p-1" title="Edit Project">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
                                 </button>
-                                <form method="POST" action="{% url 'delete_project' project.pk %}" class="inline" onsubmit="return confirm('Delete project {{ project.project_id }}?');">
+                                <form method="POST" action="{% url 'planner_delete_project' project.pk %}" class="inline" onsubmit="return confirm('Delete project {{ project.project_id }}?');">
                                     {% csrf_token %}
                                     <button type="submit" class="text-gray-400 hover:text-red-600 transition-colors p-1" title="Delete Project">
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
